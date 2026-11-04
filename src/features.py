@@ -127,6 +127,8 @@ EXT_MODELS_2024 = ["icon_seamless", "gem_seamless", "meteofrance_seamless", "cma
 USE_2024 = os.environ.get("OIBC_EXT2024", "0") == "1"      # 실험 스위치
 CALENDAR = os.environ.get("OIBC_CAL", "1") == "1"         # 요일·공휴일 특징
 USE_GFS = os.environ.get("OIBC_GFS", "1") == "1"          # NOAA GFS 원본 상자 평균
+USE_GEFS = os.environ.get("OIBC_GEFS", "1") == "1"        # NOAA GEFS 평균·퍼짐
+USE_UM = os.environ.get("OIBC_UM", "1") == "1"            # 기상청 UM 국지(LDAPS)
 
 
 def load_ext(mode: str = "mean") -> pd.DataFrame | None:
@@ -166,6 +168,19 @@ def load_ext(mode: str = "mean") -> pd.DataFrame | None:
         f["ts"] = f.ts.dt.tz_convert(TZ).astype(f"datetime64[ns, {TZ}]")
         out = out.join(f.set_index("ts")[["gfs_ghi", "gfs_kcs", "gfs_tcc"]].add_prefix("ext_"), how="outer")
         ghi_cols.append("ext_gfs_ghi")
+    gefs = os.path.join(root, "gefs_hourly.parquet")
+    if USE_GEFS and os.path.exists(gefs):                      # NOAA GEFS 평균 + 퍼짐 (src/fetch_gefs.py)
+        f = pd.read_parquet(gefs)
+        f["ts"] = f.ts.dt.tz_convert(TZ).astype(f"datetime64[ns, {TZ}]")
+        cols = ["gefs_ghi", "gefs_kcs", "gefs_tcc", "gefs_ghi_spr", "gefs_tcc_spr", "gefs_kcs_spr"]
+        out = out.join(f.set_index("ts")[cols].add_prefix("ext_"), how="outer")
+        ghi_cols.append("ext_gefs_ghi")
+    um = os.path.join(root, "kma_um_hourly.parquet")
+    if USE_UM and os.path.exists(um):                          # 기상청 UM 국지(LDAPS) D-1 00z (src/fetch_kma.py)
+        f = pd.read_parquet(um)
+        f["ts"] = f.ts.dt.tz_convert(TZ).astype(f"datetime64[ns, {TZ}]")
+        out = out.join(f.set_index("ts")[["um_ghi", "um_dir", "um_dif"]].add_prefix("ext_"), how="outer")
+        ghi_cols.append("ext_um_ghi")
     out["ext_ghi_ens"] = out[[c for c in ghi_cols if c.endswith("_ghi")]].mean(axis=1)
     out = out.reset_index().sort_values("ts")
     out["tday"] = target_day(out.ts)

@@ -11,7 +11,7 @@
 | 리더보드 | **6,455,051,853 (88위)** — `ens_ref`, 공식 베이스라인(6,418,396,513) 대비 +3,666만 원 |
 | 로컬 ↔ 리더보드 보정 | 로컬 감소분 3,741만 ↔ 리더보드 3,666만 (오차 2%) → **로컬 채점기 신뢰 가능** |
 | 목표 | 10위 ≈ 베이스라인 대비 −21.9%, 1위 ≈ −24.4% (평가 구간 베이스라인 페널티 ≈ 2.2억 역산) |
-| 로컬 최고 | **−19.8%** (발전소 모델 + GFS 그룹 모델 4년) |
+| 로컬 최고 | **−19.9%** (반년 교차검증) — 그룹+GFS 4년 52% · 발전소 28% · 발전소+GFS 3년 20% |
 
 ### 핵심 발견
 
@@ -20,6 +20,8 @@
 3. **신선도가 중요** — 같은 GFS 라도 Open-Meteo 48h 전 발행분보다 **NOAA 원본 D-1 00 UTC 실행분**(마감 전 공개)이 훨씬 효과적. 학습 기간 전체(2021~)를 덮어 학습 기간도 늘릴 수 있게 됨.
 4. **앙상블 다양성은 알고리즘이 아니라 정보원에서** — LGBM↔XGB 오차 상관 0.99, 발전소↔그룹 0.89, 외부데이터 유무 0.80. 반년 교차검증으로 고르면 3개 구성원만 남음.
 5. 봄철 주말·공휴일 낮 과대예측(+3.3% vs 평일 −1.9%) = 출력제어 흔적 → 요일·공휴일 특징 −0.5%.
+6. **모델 앙상블보다 데이터 융합** — 날씨 소스를 한 모델에 같이 넣는 것이 가장 효과적. 소스별 모델을 따로 만들어 섞으면 효과 0. 앙상블은 발전소 vs 그룹 **구조 차이**만 의미 있음.
+7. **학습 기간은 외부 일사량이 덮어야 늘릴 수 있다** — GFS 없이 2→3년은 +0.9% 악화, GFS 있으면 −0.9% 개선.
 
 ---
 
@@ -38,6 +40,7 @@ uv pip install --python .venv/Scripts/python.exe -r requirements.txt
    .venv/Scripts/python.exe src/fetch_external.py     # Open-Meteo (JMA/ECMWF/GFS 48h 전, JMA 추가 변수)   ~10분
    .venv/Scripts/python.exe src/fetch_gfs.py          # NOAA GFS 원본 D-1 00z, 2021~                      ~30분
    .venv/Scripts/python.exe src/fetch_gefs.py         # NOAA GEFS 평균+퍼짐 D-1 00z, 2021~                 ~40분
+   .venv/Scripts/python.exe src/fetch_kma.py --um     # 기상청 UM 국지(LDAPS) D-1 00z, 2021~2026.3        ~60분 (.env 에 KMA_API_KEY)
    ```
 3. 검증 (2024-06 이전 학습 → 마지막 1년을 대회 식으로 채점)
    ```bash
@@ -64,7 +67,7 @@ uv pip install --python .venv/Scripts/python.exe -r requirements.txt
 | [`src/daily_model.py`](src/daily_model.py) | 일일 총량 모델 (실험, 미채택) |
 | [`src/ensemble.py`](src/ensemble.py) · [`src/ensemble_select.py`](src/ensemble_select.py) | 앙상블 비율 / 구성원 선별 |
 | [`src/composition.py`](src/composition.py) | G1/G2 구성 최적화 (국소탐색 + HiGHS MILP) |
-| [`src/fetch_external.py`](src/fetch_external.py) · [`src/fetch_gfs.py`](src/fetch_gfs.py) · [`src/fetch_gefs.py`](src/fetch_gefs.py) | 외부 수치예보 수집 |
+| [`src/fetch_external.py`](src/fetch_external.py) · [`src/fetch_gfs.py`](src/fetch_gfs.py) · [`src/fetch_gefs.py`](src/fetch_gefs.py) · [`src/fetch_kma.py`](src/fetch_kma.py) | 외부 수치예보 수집 (Open-Meteo / NOAA GFS / NOAA GEFS / 기상청 LDAPS·천리안) |
 | [`src/scoring.py`](src/scoring.py) | 로컬 정산금 S (리더보드와 오차 2%) |
 | [`src/validate_submission.py`](src/validate_submission.py) | 공식 제출 형식 검사기 |
 | `src/analyze_*.py`, `src/inspect_data.py` | 오라클·잔차·시차 분석 (집계값만 출력) |
@@ -82,7 +85,9 @@ uv pip install --python .venv/Scripts/python.exe -r requirements.txt
 | `site_cal` + 요일·공휴일 | 190,497,019 (단독) | −15.2% |
 | 그룹 모델 작은 트리 + 시드 5 + 요일 → 발전소와 혼합 | 185,186,592 | −17.5% |
 | 반년 교차검증으로 고른 3구성원 (발전소, 그룹, 날씨보정 v1) | 184,880,195 (CV) | −17.7% |
-| **그룹 모델 + NOAA GFS 원본, 4년 학습 → 발전소와 혼합** | **180,060,649** | **−19.8%** |
+| 그룹 모델 + NOAA GFS 원본, 4년 학습 → 발전소와 혼합 | 180,060,649 | −19.8% |
+| `site_gfs3` 발전소 + GFS, 3년 학습 | 188,045,715 (단독) | −16.3% |
+| **반년 교차검증 3구성원: 그룹+GFS 4년 52% · 발전소(요일) 28% · 발전소+GFS 3년 20%** | **179,920,809 (CV)** | **−19.9%** |
 
 효과 없음/미채택: 학습 가중(k, SMP×k) · 발전소 모델 3년 학습(GFS 이전) · L1 목적함수 · Optuna(단일 내부연도 → 과적합) · 일일 총량 재조정(−0.3%) · XGBoost/CatBoost 그룹(LGBM 과 오차 상관 0.99) · 지역/아날로그/선형(교차검증 탈락) · 출력 상한 클리핑 · 직전 눈 예보
 
@@ -90,10 +95,11 @@ uv pip install --python .venv/Scripts/python.exe -r requirements.txt
 
 ### 다음 할 일
 
-- [ ] 발전소 모델에 GFS + 학습 기간 3~4년
-- [ ] NOAA GEFS 평균 + 퍼짐(예보 불확실성)
-- [ ] 기상청 LDAPS / API허브 "에너지(태양광)" (공공누리 1유형, 인증키 필요 — `.env` 의 `KMA_API_KEY`)
-- [ ] 날씨 보정 v2 (모든 수치예보 → 실측 자외선·구름, MOS)
+- [x] 발전소 모델에 GFS + 학습 3년 (−0.9%) / 4년 진행 중
+- [ ] NOAA GEFS 평균 + 퍼짐(예보 불확실성) — 수집 중
+- [ ] 기상청 UM 국지(LDAPS) D-1 00z 일사량 — 수집 중 (API허브 10.4, 변수 4200/4198/4199)
+- [ ] 천리안2A 위성 일사량(학습 정답용) — 수집기 준비됨 (`fetch_kma.py --sat`)
+- [ ] 날씨 보정 v2 (모든 수치예보 → 위성 실측 일사량, MOS)
 - [ ] 최종: 반년 교차검증 선별 → 구성 최적화 → 제출용 학습
 - [ ] 발표용 SHAP 그림
 
@@ -351,7 +357,8 @@ uv pip install --python .venv/Scripts/python.exe -r requirements.txt
 | Open-Meteo Previous Runs API — JMA Seamless, ECMWF IFS 0.25°, GFS Seamless 의 `shortwave_radiation_previous_day2`, `cloud_cover_previous_day2` | https://previous-runs-api.open-meteo.com/v1/forecast (문서 https://open-meteo.com/en/docs/previous-runs-api) | `python src/fetch_external.py` → `data_ext/` | 데이터 CC BY 4.0 (https://open-meteo.com/en/licence). 무료 API 는 비상업 조건 → **운영진 문의 중** | 유효시각 48시간 전 발행분만 사용 (전날 00시 이전 발행). 한반도 고정 격자 25점(위도 34.75~37.75, 경도 126.5~129.5, 0.75° 간격), 발전소 좌표 미사용, 모든 발전소에 같은 값 |
 | **NOAA GFS 0.25°/1° 원본** — `DSWRF:surface`, `TCDC:entire atmosphere` (구간 평균) | https://noaa-gfs-bdp-pds.s3.amazonaws.com (https://registry.opendata.aws/noaa-gfs-bdp-pds/) | `python src/fetch_gfs.py` → `data_ext/gfs_hourly.parquet` | 미국 정부 공개 데이터 (NOAA Open Data, 상업 이용 제한 없음) | **D-1 00 UTC 실행분만** (보통 D-1 03~05 UTC 공개 < 마감 08 UTC), 리드 16~39h. 한반도 고정 상자(34~38°N, 126~129°E) 평균 하나, 발전소 좌표 미사용 |
 | **NOAA GEFS 0.5°** — 앙상블 평균(`geavg`)·표준편차(`gespr`)의 DSWRF, TCDC | https://noaa-gefs-pds.s3.amazonaws.com (https://registry.opendata.aws/noaa-gefs/) | `python src/fetch_gefs.py` → `data_ext/gefs_hourly.parquet` | 미국 정부 공개 데이터 | GFS 와 같은 규칙 (D-1 00z, 고정 상자 평균) |
-| (예정) 기상청 수치예보모델 LDAPS / API허브 에너지(태양광) | https://apihub.kma.go.kr (공공데이터포털 15139467) | 인증키 (`.env` 의 `KMA_API_KEY`) | **공공누리 제1유형** (출처표시, 상업 이용 가능) | 운영진 확인 후 사용 |
+| **기상청 UM 국지모델(UMKR = LDAPS 1.5km)** — 지면 하향단파 `4200`, 직달 `4198`, 산란 `4199` | https://apihub.kma.go.kr/api/typ06/url/um_grib_pt_tmfc.php (API허브 → 수치모델 → 10.4, 공공데이터포털 15139467) | `python src/fetch_kma.py --um` (`.env` 의 `KMA_API_KEY`, 본인 키) | **공공누리 제1유형** (출처표시, 상업 이용 가능). 출처: 기상청 | **D-1 00 UTC 실행만**, 리드 15~39h, 고정 5지점 평균. UM 은 2026-03-31 생산 종료 → 평가 기간 마지막 2개월은 다른 소스로 대체. API 약관: 하루 20,000건·5GB, 단일 키 |
+| 천리안2A 위성 하향단파복사(DSR) | https://apihub.kma.go.kr/api/typ01/cgi-bin/url/nph_sun_sat_txt (산업특화 → 태양광 5번) | `python src/fetch_kma.py --sat` | 공공누리 제1유형 | **학습 구간 정답(날씨 보정 타깃)으로만** 사용, 예측 입력 아님 |
 | LightGBM, XGBoost, CatBoost, pandas, numpy, pyarrow, scikit-learn, scipy(HiGHS), optuna, holidays, eccodes | PyPI | `requirements.txt` | MIT / BSD / Apache-2.0 | |
 
 ---
