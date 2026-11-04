@@ -4,6 +4,58 @@
 
 ---
 
+## 🚀 빠른 시작 (팀원용)
+
+```bash
+git clone https://github.com/nepersoned/oibc-2026.git
+cd oibc-2026
+uv venv --python 3.12 .venv
+uv pip install --python .venv/Scripts/python.exe -r requirements.txt
+```
+
+1. 대회 페이지에서 받은 `OIBC_2026_DATA.zip`을 저장소 루트에 풀어 `data/handover 2/01_participant_dataset/`가 되게 둡니다. (데이터는 git에 올라가지 않음)
+2. 검증 점수 확인 — 2024-06-01 이전으로 학습해 마지막 1년을 대회 식으로 채점 (약 3분)
+   ```bash
+   .venv/Scripts/python.exe src/pipeline.py --mode val --tag 내실험이름
+   ```
+3. 점수가 기록보다 좋으면 제출 파일 생성 (`submissions/`에 두 파일 + 형식 검사 자동 실행)
+   ```bash
+   .venv/Scripts/python.exe src/pipeline.py --mode submit --tag 내실험이름
+   ```
+4. [SUBMISSIONS.md](SUBMISSIONS.md)에 기록하고 제출
+
+### 코드 구조 — 어디를 고치면 되나
+
+| 파일 | 역할 | 실험할 때 |
+| --- | --- | --- |
+| [`src/features.py`](src/features.py) | 예보 결합 · 태양 위치 · 특징 목록 `FEATS` | 새 특징 추가 |
+| [`src/model.py`](src/model.py) | `fit` / `predict` (현재 LightGBM, 설비이용률 타깃) | 모델·하이퍼파라미터·손실 변경 |
+| [`src/pipeline.py`](src/pipeline.py) | 학습 → 예측 → 채점/제출 | 라운드 결합 방식, 학습 기간 |
+| [`src/scoring.py`](src/scoring.py) | 로컬 정산금 S 계산 (발전소별 예측 + 구성) | 거의 안 건드림 |
+| [`src/validate_submission.py`](src/validate_submission.py) | 공식 제출 형식 검사기 | 건드리지 않음 |
+| [`src/inspect_data.py`](src/inspect_data.py) | 데이터 무결성 점검 (집계값만) | — |
+
+### 현재 기록 (검증 구간 2024-06 ~ 2025-05)
+
+| 실험 | S (원) | 페널티 W (원) | W/매출 | G1 nMAE | G2 nMAE |
+| --- | --- | --- | --- | --- | --- |
+| `baseline` — 공식 baseline 재현 (참조 구성, LGBM, 2년, 라운드 평균) | 7,273,036,413 | 224,547,074 | 2.995% | 13.23% | 13.70% |
+
+> 새 실험이 기록을 넘으면 이 표에 한 줄 추가해 주세요. **W가 작을수록 좋습니다.**
+
+### 💡 실험 아이디어 (가져갈 사람 이름 적기)
+
+- [ ] **구성 최적화** — 그룹 안에서 오차가 상쇄되도록 발전소 배정 (발전소별 검증 예측 `outputs/val_*_sites.parquet` 활용)
+- [ ] **손실 가중** — 채점이 SMP × k(11~15시 3배)로 가중되므로 `sample_weight`에 반영
+- [ ] **집합 단위 보정** — 발전소별 예측 합 → 집합 단위 잔차 보정 모델
+- [ ] **라운드 결합** — 10·17 평균 대신 17 위주 / 가중 평균 / 둘 다 특징으로
+- [ ] **특징** — 청천일사량(clear-sky), 같은 지점 주변 시각 예보(lag/lead), 발전소별 과거 평균 설비이용률
+- [ ] **학습 기간** — `--train-years` 2 → 3, 4
+- [ ] **평가 예보 A 결손 264행** 대체 방식 (현재 NaN 그대로 LightGBM에 넘김)
+- [ ] **출력제어 · 장애** 시각 처리 (실적에 그대로 포함됨)
+
+---
+
 ## 📅 주요 일정
 
 | 항목 | 일시 |
@@ -218,9 +270,10 @@ k(t) = 3  (ts의 시가 11~15)
 .
 ├── data/          # 대회 제공 데이터 (git 제외)
 ├── notebooks/     # EDA 및 실험 노트북
-├── src/           # 전처리 / 학습 / 추론 코드
-│   └── inspect_data.py   # 데이터 무결성 점검 (집계값만 출력)
-├── submissions/   # composition.csv, forecast.csv
+├── src/           # 전처리 / 학습 / 추론 코드 (위 "코드 구조" 참고)
+├── outputs/       # 발전소별 예측 parquet (git 제외)
+├── submissions/   # composition_*.csv, forecast_*.csv (git 제외)
+├── SUBMISSIONS.md # 제출 기록
 └── README.md
 ```
 
