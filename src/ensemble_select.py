@@ -25,14 +25,19 @@ def main() -> None:
     ap.add_argument("--sites", nargs="*", default=[], help="outputs/val_<name>_sites.parquet 의 <name>")
     ap.add_argument("--groups", nargs="*", default=[], help="name:path (group, ts, pred)")
     ap.add_argument("--min-gain", type=float, default=0.001, help="채택 최소 개선 비율 (0.1%)")
+    ap.add_argument("--val-start", default=sc.VAL_START)
+    ap.add_argument("--val-end", default=sc.VAL_END)
+    ap.add_argument("--composition", default=None)
+    ap.add_argument("--fixed", default=None, help="고정 비율로만 채점: 'name=w,name=w' (선별 생략)")
     a = ap.parse_args()
 
     sites = sc.load_sites()
-    comp = sc.reference_composition(sites)
-    actual = sc.load_actual()
+    comp = sc.read_composition(a.composition) if a.composition else sc.reference_composition(sites)
+    actual = sc.load_actual(a.val_start, a.val_end)
+    suffix = "" if a.val_start == sc.VAL_START else f"_{a.val_start[:4]}"
     smp = sc.load_smp()
     act = actual.assign(group=actual.site_id.map(comp)).groupby(["group", "ts"]).energy.sum().rename("act")
-    cols = {n: E.group_sum(os.path.join(E.OUT, f"val_{n}_sites.parquet"), actual, comp) for n in a.sites}
+    cols = {n: E.group_sum(os.path.join(E.OUT, f"val_{n}{suffix}_sites.parquet"), actual, comp) for n in a.sites}
     for item in a.groups:
         n, path = item.split(":", 1)
         g = pd.read_parquet(path)
@@ -43,7 +48,15 @@ def main() -> None:
     w = (0.1 * ts.map(smp) * sc.k_weight(ts)).to_numpy()
     y = df.act.to_numpy()
     names = list(cols)
-    half = (ts < pd.Timestamp("2024-12-01", tz=sc.TZ)).to_numpy()
+    mid_t = pd.Timestamp(a.val_start, tz=sc.TZ) + pd.DateOffset(months=6)
+    half = (ts < mid_t).to_numpy()
+    if a.fixed:
+        wts = {k: float(v) for k, v in (x.split("=") for x in a.fixed.split(","))}
+        P = sum(df[k].to_numpy() * v for k, v in wts.items())
+        print(f"고정 비율 {wts}: W {float((w * np.abs(P - y)).sum()):,.0f}")
+        for n in names:
+            print(f"  단독 {n:12s} W {float((w * np.abs(df[n].to_numpy() - y)).sum()):,.0f}")
+        return
 
     mid = ts.dt.hour.between(9, 16).to_numpy()
     err = df.loc[mid, names].sub(df.act[mid], axis=0)

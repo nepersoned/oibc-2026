@@ -129,6 +129,7 @@ CALENDAR = os.environ.get("OIBC_CAL", "1") == "1"         # 요일·공휴일 �
 USE_GFS = os.environ.get("OIBC_GFS", "1") == "1"          # NOAA GFS 원본 상자 평균
 USE_GEFS = os.environ.get("OIBC_GEFS", "1") == "1"        # NOAA GEFS 평균·퍼짐
 USE_UM = os.environ.get("OIBC_UM", "1") == "1"            # 기상청 UM 국지(LDAPS)
+ENS_MODE = os.environ.get("OIBC_ENS", "all")               # ext_ghi_ens 계산 방식: all | stable
 
 
 def load_ext(mode: str = "mean") -> pd.DataFrame | None:
@@ -181,7 +182,12 @@ def load_ext(mode: str = "mean") -> pd.DataFrame | None:
         f["ts"] = f.ts.dt.tz_convert(TZ).astype(f"datetime64[ns, {TZ}]")
         out = out.join(f.set_index("ts")[["um_ghi", "um_dir", "um_dif"]].add_prefix("ext_"), how="outer")
         ghi_cols.append("ext_um_ghi")
-    out["ext_ghi_ens"] = out[[c for c in ghi_cols if c.endswith("_ghi")]].mean(axis=1)
+    # 앙상블 평균 일사: 'all' = 그 시점에 있는 모든 소스 평균 (소스 구성이 시기마다 바뀜 → 뜻이 변함)
+    #                  'stable' = 학습·평가 전 기간에 항상 있는 소스만 (GFS 원본, 쓰는 경우 LDAPS)
+    ens_cols = [c for c in ghi_cols if c.endswith("_ghi")]
+    if ENS_MODE == "stable":
+        ens_cols = [c for c in ("ext_gfs_ghi", "ext_um_ghi") if c in out.columns] or ens_cols
+    out["ext_ghi_ens"] = out[ens_cols].mean(axis=1)
     out = out.reset_index().sort_values("ts")
     out["tday"] = target_day(out.ts)
     for c in ghi_cols + ["ext_ghi_ens"]:
