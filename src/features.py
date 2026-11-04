@@ -66,6 +66,161 @@ def build(base: pd.DataFrame, sites: pd.DataFrame, fa: pd.DataFrame, fb: pd.Data
     return d
 
 
+# ---------------------------------------------------------------- rich feature set
+WA_ALL = ["wa_cloud", "wa_temp", "wa_humidity", "wa_ground_press", "wa_wind_speed", "wa_rain", "wa_snow"]
+WB_ALL = ["wb_cloud", "wb_temp", "wb_dew_point", "wb_rel_hum", "wb_uv_idx", "wb_vis", "wb_ceiling",
+          "wb_precip_prob", "wb_rain_prob", "wb_snow_prob", "wb_total_liq", "wb_snow", "wb_wind_speed"]
+CTX = {"wa": ["wa_cloud", "wa_humidity", "wa_rain"],
+       "wb": ["wb_cloud", "wb_uv_idx", "wb_vis", "wb_precip_prob", "wb_ceiling"]}
+R10 = {"wa": ["wa_cloud"], "wb": ["wb_cloud", "wb_uv_idx", "wb_precip_prob"]}
+REGION = ["wa_cloud", "wb_cloud", "wb_uv_idx", "wb_precip_prob"]
+
+
+def target_day(ts: pd.Series) -> pd.Series:
+    """우측닫힘 ts 의 대상일 (ts=00:00 은 전날 24시). 같은 대상일의 예보만 묶기 위한 키."""
+    return (ts - pd.Timedelta(hours=1)).dt.floor("D")
+
+
+def prep_forecast(f: pd.DataFrame, prov: str, cols: list[str]) -> pd.DataFrame:
+    """(station, round, ts) → (station, ts) 한 행.
+
+    - 기본값: round 17, 결손이면 round 10 으로 채움 (둘 다 예측시점 이전 발행 → 허용)
+    - round 10 값과 차이 (예보 갱신량)
+    - 같은 대상일 안에서만 앞뒤 1·2시간, 일평균·주간(9~16시) 평균 — 대상일 경계를 넘지 않음
+    """
+    st = f"{prov}_station"
+    r17 = f[f["round"] == 17].drop(columns="round").set_index([st, "ts"])
+    r10 = f[f["round"] == 10].drop(columns="round").set_index([st, "ts"])
+    idx = r17.index.union(r10.index)
+    r17, r10 = r17.reindex(idx), r10.reindex(idx)
+    d = r17.fillna(r10)
+    for c in R10[prov]:
+        d[f"{c}_r10"] = r10[c]
+        d[f"{c}_d10"] = r17[c] - r10[c]
+    d = d.reset_index().sort_values([st, "ts"])
+    d["tday"] = target_day(d.ts)
+    hr = d.ts.dt.hour
+    g = d.groupby([st, "tday"], sort=False)
+    for c in CTX[prov]:
+        gc = g[c]
+        for k in (1, 2):
+            d[f"{c}_lag{k}"] = gc.shift(k)
+            d[f"{c}_lead{k}"] = gc.shift(-k)
+        d[f"{c}_dmean"] = gc.transform("mean")
+        day = d[c].where(hr.between(9, 16))
+        d[f"{c}_daymean"] = day.groupby([d[st], d.tday]).transform("mean")
+    num = d.columns.difference([st, "ts", "tday"])
+    d[num] = d[num].astype("float32")
+    return d.drop(columns="tday")
+
+
+def region_means(fa: pd.DataFrame, fb: pd.DataFrame) -> pd.DataFrame:
+    """시각별 전체 관측지점 평균 (전국 요약 — 모든 발전소에 같은 값)."""
+    a = fa.groupby("ts")[[c for c in REGION if c.startswith("wa")]].mean()
+    b = fb.groupby("ts")[[c for c in REGION if c.startswith("wb")]].mean()
+    r = a.join(b, how="outer").add_prefix("reg_").astype("float32")
+    return r.reset_index()
+
+
+EXT_MODELS = ["ecmwf_ifs025", "jma_seamless", "gfs_seamless"]
+
+
+def load_ext(mode: str = "mean") -> pd.DataFrame | None:
+    """외부 수치예보 (src/fetch_external.py, 48시간 전 발행분, 고정 격자) → 시각별 특징. 모든 발전소에 같은 값.
+
+    mode: 'none' | 'mean' — 고정 격자 25점의 **평균 하나로 요약**해 모든 발전소에 같은 값 (공지 5항).
+    격자점별 값을 따로 열로 쓰지 않는다.
+    """
+    if mode == "none":
+        return None
+    root = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data_ext")
+    out = None
+    ghi_cols = []
+    for m in EXT_MODELS:
+        path = os.path.join(root, f"openmeteo_{m}.parquet")
+        if not os.path.exists(path):
+            continue
+        f = pd.read_parquet(path)
+        f["ts"] = f.ts.dt.tz_convert(TZ).astype(f"datetime64[ns, {TZ}]")
+        g = f.groupby("ts").agg(**{f"ext_{m}_ghi": ("shortwave_radiation", "mean"),
+                                   f"ext_{m}_cc": ("cloud_cover", "mean")})
+        ghi_cols.append(f"ext_{m}_ghi")
+        out = g if out is None else out.join(g, how="outer")
+    if out is None:
+        return None
+    extra = os.path.join(root, "openmeteo_jma_extra.parquet")
+    if os.path.exists(extra):                                   # 구름 층별·직달/산란 일사·강수·기온 (격자 평균)
+        f = pd.read_parquet(extra)
+        f["ts"] = f.ts.dt.tz_convert(TZ).astype(f"datetime64[ns, {TZ}]")
+        cols = [c for c in f.columns if c not in {"ts", "pt"}]
+        g = f.groupby("ts")[cols].mean().add_prefix("ext_jx_")
+        out = out.join(g, how="outer")
+        ghi_cols += ["ext_jx_direct_radiation", "ext_jx_diffuse_radiation"]
+    out["ext_ghi_ens"] = out[[c for c in ghi_cols if c.endswith("_ghi")]].mean(axis=1)
+    out = out.reset_index().sort_values("ts")
+    out["tday"] = target_day(out.ts)
+    for c in ghi_cols + ["ext_ghi_ens"]:
+        g = out.groupby("tday")[c]
+        out[f"{c}_dsum"] = g.transform("sum")                     # 대상일 총일사량 (같은 발행분)
+        out[f"{c}_lag1"] = g.shift(1)
+        out[f"{c}_lead1"] = g.shift(-1)
+    num = out.columns.difference(["ts", "tday"])
+    out[num] = out[num].astype("float32")
+    return out.drop(columns="tday")
+
+
+def load_wx(cutoff: str) -> tuple[pd.DataFrame, pd.DataFrame] | None:
+    """1단계 날씨 보정 예측 (src/weather_model.py) + 대상일 내 문맥."""
+    root = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "outputs")
+    out = []
+    for prov in ("wa", "wb"):
+        path = os.path.join(root, f"wx_{cutoff}_{prov}.parquet")
+        if not os.path.exists(path):
+            return None
+        w = pd.read_parquet(path)
+        w["ts"] = w.ts.dt.tz_convert(TZ).astype(f"datetime64[ns, {TZ}]")
+        st = f"{prov}_station"
+        w = w.sort_values([st, "ts"])
+        w["tday"] = target_day(w.ts)
+        for c in [c for c in w.columns if c.startswith("hat_")]:
+            g = w.groupby([st, "tday"])[c]
+            w[f"{c}_dmean"] = g.transform("mean")
+            w[f"{c}_lag1"] = g.shift(1)
+            w[f"{c}_lead1"] = g.shift(-1)
+        out.append(w.drop(columns="tday"))
+    return out[0], out[1]
+
+
+def build_rich(base: pd.DataFrame, sites: pd.DataFrame, fa: pd.DataFrame, fb: pd.DataFrame,
+               reg: pd.DataFrame, ext: pd.DataFrame | None = None,
+               wx: tuple[pd.DataFrame, pd.DataFrame] | None = None) -> pd.DataFrame:
+    d = base.merge(sites, on="site_id", how="left")
+    d = d.merge(fa, on=["wa_station", "ts"], how="left")
+    d = d.merge(fb, on=["wb_station", "ts"], how="left")
+    d = d.merge(reg, on="ts", how="left")
+    if ext is not None:
+        d = d.merge(ext, on="ts", how="left")
+    if wx is not None:
+        d = d.merge(wx[0], on=["wa_station", "ts"], how="left")
+        d = d.merge(wx[1], on=["wb_station", "ts"], how="left")
+    ts = pd.DatetimeIndex(d.ts)
+    d["elev"], d["azim"], d["cosz"] = solar(ts, d.lat.to_numpy(), d.lon.to_numpy())
+    cz = np.clip(d.cosz.to_numpy(), 1e-3, None)
+    d["ghi_cs"] = np.where(d.cosz > 0, 1098 * cz * np.exp(-0.057 / cz), 0).astype("float32")  # Haurwitz
+    doy = ts.day_of_year.to_numpy()
+    d["doy_sin"] = np.sin(2 * np.pi * doy / 365.25).astype("float32")
+    d["doy_cos"] = np.cos(2 * np.pi * doy / 365.25).astype("float32")
+    d["hour"] = ts.hour.to_numpy().astype("int8")
+    d["cap"] = d.capacity_kw.astype("float32")
+    d["site_code"] = d.site_id.str[2:].astype("int16")
+    return d
+
+
+def rich_feats(d: pd.DataFrame) -> list[str]:
+    drop = {"site_id", "ts", "energy", "smp", "current_group", "capacity_kw", "wa_station", "wb_station"}
+    return [c for c in d.columns if c not in drop]
+
+
 def grid(site_ids: pd.Series, start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
     """발전소 × 시각 전체 격자 (start, end 포함)."""
     idx = pd.date_range(start, end, freq="h").astype(f"datetime64[ns, {TZ}]")

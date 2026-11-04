@@ -40,6 +40,12 @@ uv pip install --python .venv/Scripts/python.exe -r requirements.txt
 | 실험 | S (원) | 페널티 W (원) | W/매출 | G1 nMAE | G2 nMAE |
 | --- | --- | --- | --- | --- | --- |
 | `baseline` — 공식 baseline 재현 (참조 구성, LGBM, 2년, 라운드 평균) | 7,273,036,413 | 224,547,074 | 2.995% | 13.23% | 13.70% |
+| `rich` — 특징 확장 (두 라운드, 대상일 내 문맥, 전국 요약, 발전소 ID, 청천일사) | 7,293,540,358 | 204,043,129 | 2.721% | 11.97% | 12.61% |
+| `rich_extx` — + 큰 LGBM + 외부 일사량 전국평균 (JMA/ECMWF/GFS, 48h 전 발행) + JMA 층별 구름·직달/산란 | 7,306,036,555 | 191,546,932 | 2.555% | 11.26% | 11.67% |
+| **`ens_ref`** — rich_extx 61.5% + 집합 모델 38.5% | 7,310,449,730 | **187,133,757** | 2.496% | | |
+| **`ens_opt`** — 위 + 국소탐색 구성 (in-sample) | 7,314,868,786 | **182,714,701** | 2.437% | | |
+
+실험 결과 메모: 학습 가중(k, SMP×k) ±0.5% 악화 · 학습 3년 +0.9% 악화 · L1 목적함수 +0.4% 악화 · 1단계 날씨 보정 모델 +0.5% 악화 · 일일 총량 모델 −0.28% (미채택) · 집합 모델 Optuna 단일 내부연도 → 과적합 (미채택) · 구성 최적화 반년 교차검증 −0.8~−1.0%
 
 > 새 실험이 기록을 넘으면 이 표에 한 줄 추가해 주세요. **W가 작을수록 좋습니다.**
 
@@ -305,7 +311,8 @@ uv pip install --python .venv/Scripts/python.exe -r requirements.txt
 
 | 이름 | 출처 URL | 받는 방법 | 라이선스 (상업적 이용) | 비고 |
 | --- | --- | --- | --- | --- |
-| | | | | |
+| Open-Meteo Previous Runs API — JMA Seamless, ECMWF IFS 0.25°, GFS Seamless 의 `shortwave_radiation_previous_day2`, `cloud_cover_previous_day2` | https://previous-runs-api.open-meteo.com/v1/forecast (문서 https://open-meteo.com/en/docs/previous-runs-api) | `python src/fetch_external.py` → `data_ext/` | 데이터 CC BY 4.0 (https://open-meteo.com/en/licence). 무료 API 는 비상업 조건 → **운영진 문의 중** | 유효시각 48시간 전 발행분만 사용 (전날 00시 이전 발행). 한반도 고정 격자 25점(위도 34.75~37.75, 경도 126.5~129.5, 0.75° 간격), 발전소 좌표 미사용, 모든 발전소에 같은 값 |
+| LightGBM, pandas, numpy, pyarrow, scikit-learn, scipy(HiGHS) | PyPI | `requirements.txt` | MIT / BSD | |
 
 ---
 
