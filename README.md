@@ -72,6 +72,8 @@ uv pip install --python .venv/Scripts/python.exe -r requirements.txt
 | [`src/validate_submission.py`](src/validate_submission.py) | 공식 제출 형식 검사기 |
 | `src/analyze_*.py`, `src/inspect_data.py` | 오라클·잔차·시차 분석 (집계값만 출력) |
 
+> 📒 전체 실험 로그: [EXPERIMENTS.md](EXPERIMENTS.md) (`JH#1` 형식)
+
 ### 실험 기록 (검증 구간 2024-06 ~ 2025-05, 페널티 W — 작을수록 좋음)
 
 | 실험 | W (원) | 베이스라인 대비 |
