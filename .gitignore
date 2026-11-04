@@ -30,3 +30,6 @@ Thumbs.db
 .vscode/
 .idea/
 .claude/settings.local.json
+
+# 학습 도구 로그
+catboost_info/
