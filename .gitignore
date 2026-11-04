@@ -33,3 +33,6 @@ Thumbs.db
 
 # 학습 도구 로그
 catboost_info/
+
+# 외부 안내 문서
+*사용_방법_안내*.pdf
