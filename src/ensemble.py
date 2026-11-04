@@ -62,11 +62,12 @@ def cmd_fit(a) -> None:
     cols = {m: group_sum(os.path.join(OUT, f"val_{m}_sites.parquet"), actual, comp) for m in a.members}
     df = pd.concat([act] + [s.rename(m) for m, s in cols.items()], axis=1).fillna(0)
     names = list(a.members)
-    if a.agg:
-        g = pd.read_parquet(a.agg)
+    for i, path in enumerate(a.agg or []):
+        n = "agg" if i == 0 else f"agg{i}"
+        g = pd.read_parquet(path)
         g["ts"] = sc.to_ts(g.ts)
-        df = df.join(g.set_index(["group", "ts"]).pred.rename("agg")).fillna({"agg": 0})
-        names.append("agg")
+        df = df.join(g.set_index(["group", "ts"]).pred.rename(n)).fillna({n: 0})
+        names.append(n)
     ts = df.index.get_level_values("ts").to_series(index=df.index)
     w = (0.1 * ts.map(smp) * sc.k_weight(ts)).to_numpy()
     y = df.act.to_numpy()
@@ -78,7 +79,7 @@ def cmd_fit(a) -> None:
     eq = float((w * np.abs(P.mean(1) - y)).sum())
     print(f"  균등 평균        W {eq:>15,.0f}")
     print(f"  최적 혼합        W {W:>15,.0f}   비율 " + ", ".join(f"{n}={x:.3f}" for n, x in zip(names, wt)))
-    json.dump({"members": a.members, "agg": bool(a.agg), "weights": dict(zip(names, map(float, wt))), "W_val": W},
+    json.dump({"members": a.members, "agg": len(a.agg or []), "weights": dict(zip(names, map(float, wt))), "W_val": W},
               open(WPATH, "w"), indent=2, ensure_ascii=False)
     print(f"저장: {WPATH}")
 
@@ -91,10 +92,11 @@ def cmd_submit(a) -> None:
     for m in cfg["members"]:
         s = group_sum(os.path.join(OUT, f"test_{m}_sites.parquet"), None, comp) * cfg["weights"][m]
         total = s if total is None else total.add(s, fill_value=0)
-    if cfg["agg"]:
-        g = pd.read_parquet(a.agg_test)
+    for i, path in enumerate(a.agg_test[: int(cfg["agg"])]):
+        n = "agg" if i == 0 else f"agg{i}"
+        g = pd.read_parquet(path)
         g["ts"] = sc.to_ts(g.ts)
-        total = total.add(g.set_index(["group", "ts"]).pred * cfg["weights"]["agg"], fill_value=0)
+        total = total.add(g.set_index(["group", "ts"]).pred * cfg["weights"][n], fill_value=0)
     f = total.clip(lower=0).rename("forecast_kwh").reset_index().sort_values(["group", "ts"])
     f["ts"] = f.ts.dt.strftime("%Y-%m-%d %H:%M:%S%z").str.replace(r"(\d{2})(\d{2})$", r"\1:\2", regex=True)
     os.makedirs(SUB, exist_ok=True)
@@ -111,13 +113,14 @@ def main() -> None:
     sp = ap.add_subparsers(dest="cmd", required=True)
     f = sp.add_parser("fit")
     f.add_argument("--members", nargs="+", required=True, help="outputs/val_<member>_sites.parquet 의 <member>")
-    f.add_argument("--agg", default=None, help="집합 모델 검증 예측 (group, ts, pred)")
+    f.add_argument("--agg", nargs="*", default=None, help="집합 모델 검증 예측들 (group, ts, pred)")
     f.add_argument("--composition", default=None)
     s = sp.add_parser("submit")
     s.add_argument("--tag", required=True)
     s.add_argument("--composition", default=None)
     s.add_argument("--weights", default=WPATH, help="ensemble.py fit 이 저장한 비율 json")
-    s.add_argument("--agg-test", default=os.path.join(OUT, "test_agg_group.parquet"), help="집합 모델 평가 구간 예측")
+    s.add_argument("--agg-test", nargs="*", default=[os.path.join(OUT, "test_agg_group.parquet")],
+                   help="집합 모델 평가 구간 예측들 (fit 의 --agg 와 같은 순서)")
     a = ap.parse_args()
     cmd_fit(a) if a.cmd == "fit" else cmd_submit(a)
 

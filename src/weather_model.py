@@ -29,6 +29,8 @@ log = lambda m: print(f"[{time.time() - t0:6.1f}s] {m}", flush=True)
 
 TARGETS = {"wa": {"wa_cloud": (0, 100)},
            "wb": {"wb_cloud": (0, 100), "wb_uv_idx": (0, 15), "wb_vis": (0, 50)}}
+OBJECTIVE = {"wa_cloud": "l1", "wb_cloud": "l1", "wb_uv_idx": "l2", "wb_vis": "l1"}   # 구름: 양봉 분포 → 중앙값
+_EXT = None
 COLS = {"wa": F.WA_ALL, "wb": F.WB_ALL}
 PARAMS = dict(n_estimators=400, learning_rate=0.08, num_leaves=63, min_child_samples=100,
               subsample=0.7, subsample_freq=1, colsample_bytree=0.7, verbose=-1, n_jobs=-1)
@@ -44,6 +46,11 @@ def frame(split: str, prov: str) -> pd.DataFrame:
     doy = d.ts.dt.day_of_year.to_numpy()
     d["doy_sin"], d["doy_cos"] = np.sin(2 * np.pi * doy / 365.25), np.cos(2 * np.pi * doy / 365.25)
     d["hour"] = d.ts.dt.hour.astype("int8")
+    global _EXT
+    if _EXT is None:
+        _EXT = F.load_ext("mean")                       # 외부 수치예보 전국 평균 (48h 전 발행, GFS 00z D-1)
+    if _EXT is not None:
+        d = d.merge(_EXT, on="ts", how="left")
     return d
 
 
@@ -73,14 +80,16 @@ def run(prov: str, cutoff: pd.Timestamp) -> pd.DataFrame:
         pred = np.full(len(past), np.nan, dtype="float32")
         for k in range(FOLDS):
             trn = ok & (fold != k).to_numpy()
-            m = lgb.LGBMRegressor(**PARAMS).fit(past.loc[trn, feats], y[trn], categorical_feature=["st_code"])
+            m = lgb.LGBMRegressor(**PARAMS, objective=OBJECTIVE[tgt]).fit(past.loc[trn, feats], y[trn],
+                                                                          categorical_feature=["st_code"])
             te = (fold == k).to_numpy()
             pred[te] = m.predict(past.loc[te, feats])
         mae_fc = np.nanmean(np.abs(past[tgt] - y)) if tgt in past else np.nan
         mae = np.nanmean(np.abs(pred[ok] - y[ok]))
         log(f"{prov} {tgt}: 예보 그대로 MAE {mae_fc:.2f} → 보정 OOF MAE {mae:.2f}")
         oof[f"hat_{tgt}"] = pred
-        m = lgb.LGBMRegressor(**PARAMS).fit(past.loc[ok, feats], y[ok], categorical_feature=["st_code"])
+        m = lgb.LGBMRegressor(**PARAMS, objective=OBJECTIVE[tgt]).fit(past.loc[ok, feats], y[ok],
+                                                                      categorical_feature=["st_code"])
         pieces[0][f"hat_{tgt}"] = m.predict(fut_tr[feats]).astype("float32")
         if test is not None:
             pieces[1][f"hat_{tgt}"] = m.predict(test[feats]).astype("float32")
@@ -95,7 +104,7 @@ def main() -> None:
     out = {}
     for prov in ("wa", "wb"):
         out[prov] = run(prov, cutoff)
-    path = os.path.join(sc.ROOT, "outputs", f"wx_{a.cutoff}.parquet")
+    path = os.path.join(sc.ROOT, "outputs", f"wx2_{a.cutoff}.parquet")
     os.makedirs(os.path.dirname(path), exist_ok=True)
     wa, wb = out["wa"], out["wb"]
     wa.to_parquet(path.replace(".parquet", "_wa.parquet"), index=False)

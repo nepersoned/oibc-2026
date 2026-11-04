@@ -56,6 +56,24 @@ def wide(fa: pd.DataFrame, fb: pd.DataFrame) -> pd.DataFrame:
     return parts[0].join(parts[1], how="outer").astype("float32")
 
 
+WX_CUT = os.environ.get("OIBC_WX2")                     # 날씨 보정 v2 컷오프 (예: 2024-06-01) — 설정 시 사용
+
+
+def attach_wx(fa: pd.DataFrame, fb: pd.DataFrame, cutoff: str | None):
+    """날씨 보정 v2 예측(hat_*)을 관측지점 예보 표에 붙인다 → group_weather 가 용량가중 평균."""
+    if not cutoff:
+        return fa, fb
+    out = []
+    for f, prov in ((fa, "wa"), (fb, "wb")):
+        w = pd.read_parquet(os.path.join(sc.ROOT, "outputs", f"wx2_{cutoff}_{prov}.parquet"))
+        w["ts"] = w.ts.dt.tz_convert(sc.TZ).astype(f"datetime64[ns, {sc.TZ}]")
+        out.append(f.merge(w, on=[f"{prov}_station", "ts"], how="left"))
+    for prov in ("wa", "wb"):
+        GVARS[prov] = GVARS[prov] + [c for c in out[0 if prov == "wa" else 1].columns
+                                     if c.startswith("hat_") and c not in GVARS[prov]]
+    return out[0], out[1]
+
+
 def group_weather(fa: pd.DataFrame, fb: pd.DataFrame, sites: pd.DataFrame, comp: pd.Series) -> pd.DataFrame:
     """집합별 용량가중 예보 평균 (group, ts) — 집합의 '평균 날씨'."""
     out = []
@@ -89,6 +107,10 @@ def design(idx: pd.DataFrame, gw: pd.DataFrame, wd: pd.DataFrame, sites: pd.Data
     d["doy_sin"], d["doy_cos"] = np.sin(2 * np.pi * doy / 365.25), np.cos(2 * np.pi * doy / 365.25)
     d["hour"] = ts.hour.to_numpy()
     d["gcode"] = (d.group == "G2").astype("int8")
+    if F.CALENDAR:
+        cal = F.calendar(d.ts)
+        for c in cal.columns:
+            d[c] = cal[c].to_numpy()
     return d
 
 
@@ -103,19 +125,45 @@ def targets(gen: pd.DataFrame, sites: pd.DataFrame, comp: pd.Series, min_cov: fl
     return t[t["cov"] >= min_cov]
 
 
+SOURCE = os.environ.get("OIBC_SRC", "all")              # all | nwp (수치예보만) | prov (대회 예보만)
+BASE_COLS = {"elev", "azim", "cosz", "ghi_cs", "doy_sin", "doy_cos", "hour", "gcode", "dow", "is_hol", "is_off", "off_run"}
+
+
 def feats_of(d: pd.DataFrame) -> list[str]:
-    return [c for c in d.columns if c not in {"group", "ts", "act", "cap_avail", "cov", "cf", "lat", "lon"}]
+    f = [c for c in d.columns if c not in {"group", "ts", "act", "cap_avail", "cov", "cf", "lat", "lon"}]
+    if SOURCE == "nwp":
+        f = [c for c in f if c.startswith("ext_") or c in BASE_COLS]
+    elif SOURCE == "prov":
+        f = [c for c in f if not c.startswith("ext_")]
+    return f
 
 
 def fit_predict(train_t, pred_idx, gw_tr, wd_tr, gw_pr, wd_pr, sites, comp, params):
     dtr = design(train_t, gw_tr, wd_tr, sites, comp)
     dtr = dtr[dtr.elev > -2]
     feats = feats_of(dtr)
-    m = lgb.LGBMRegressor(**{**PARAMS, **params}).fit(dtr[feats], dtr.cf.clip(0, 1.2))
+    params = dict(params)
+    seeds = params.pop("seeds", 1)                       # 시드 배깅: 여러 시드 평균
+    algo = params.pop("algo", "lgb")                     # lgb | xgb | cat
     dpr = design(pred_idx, gw_pr, wd_pr, sites, comp)
-    cf = np.where(dpr.elev > -2, np.clip(m.predict(dpr[feats]), 0, None), 0.0)
-    imp = pd.Series(m.booster_.feature_importance("gain"), index=feats).sort_values(ascending=False)
-    log(f"학습 {len(dtr):,}행 × {len(feats)}  중요도 상위: " + ", ".join(imp.index[:10]))
+    raw = np.zeros(len(dpr))
+    y = dtr.cf.clip(0, 1.2)
+    for s in range(seeds):
+        if algo == "xgb":
+            import xgboost as xgb
+            m = xgb.XGBRegressor(n_estimators=2000, learning_rate=0.015, max_depth=5, min_child_weight=5,
+                                 subsample=0.8, colsample_bytree=0.4, reg_lambda=2.0, tree_method="hist",
+                                 random_state=100 + s, n_jobs=-1, **params).fit(dtr[feats], y)
+        elif algo == "cat":
+            from catboost import CatBoostRegressor
+            m = CatBoostRegressor(iterations=2500, learning_rate=0.03, depth=6, l2_leaf_reg=3, rsm=0.3,
+                                  random_seed=100 + s, verbose=0, thread_count=-1, **params).fit(dtr[feats], y)
+        else:
+            m = lgb.LGBMRegressor(**{**PARAMS, **params, "random_state": 100 + s}).fit(dtr[feats], y)
+        raw += m.predict(dpr[feats]) / seeds
+    cf = np.where(dpr.elev > -2, np.clip(raw, 0, None), 0.0)
+    imp = pd.Series(m.feature_importances_, index=feats).sort_values(ascending=False)
+    log(f"[{algo}] 학습 {len(dtr):,}행 × {len(feats)}  중요도 상위: " + ", ".join(imp.index[:10]))
     return dpr[["group", "ts"]].assign(cf_hat=cf)
 
 
@@ -153,6 +201,8 @@ def main() -> None:
     comp = sc.read_composition(a.composition) if a.composition else sc.reference_composition(sites)
     smp = sc.load_smp()
     fa_tr, fb_tr = forecasts("train")
+    wx_cut = WX_CUT if a.mode == "val" else (WX_CUT and "2025-06-01")
+    fa_tr, fb_tr = attach_wx(fa_tr, fb_tr, wx_cut)
     ext = F.load_ext(a.ext)
     add_ext = (lambda w: w.join(ext.set_index("ts"), how="left")) if ext is not None else (lambda w: w)
     gw_tr, wd_tr = group_weather(fa_tr, fb_tr, sites, comp), add_ext(wide(fa_tr, fb_tr))
@@ -189,7 +239,7 @@ def main() -> None:
     pa, pb = sc.window("2025-06-01", "2026-06-01")
     gen = load_gen(pa - pd.DateOffset(years=a.train_years), pa)
     tr = targets(gen[gen.ts < pa], sites, comp, a.min_cov)
-    fa_te, fb_te = forecasts("test")
+    fa_te, fb_te = attach_wx(*forecasts("test"), wx_cut)
     idx = pd.MultiIndex.from_product([["G1", "G2"], pd.date_range(pa, pb, freq="h").astype(f"datetime64[ns, {sc.TZ}]")],
                                      names=["group", "ts"]).to_frame(index=False)
     p = fit_predict(tr, idx, gw_tr, wd_tr, group_weather(fa_te, fb_te, sites, comp), add_ext(wide(fa_te, fb_te)),

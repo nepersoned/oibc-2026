@@ -123,6 +123,10 @@ def region_means(fa: pd.DataFrame, fb: pd.DataFrame) -> pd.DataFrame:
 
 
 EXT_MODELS = ["ecmwf_ifs025", "jma_seamless", "gfs_seamless"]
+EXT_MODELS_2024 = ["icon_seamless", "gem_seamless", "meteofrance_seamless", "cma_grapes_global", "bom_access_global"]
+USE_2024 = os.environ.get("OIBC_EXT2024", "0") == "1"      # 실험 스위치
+CALENDAR = os.environ.get("OIBC_CAL", "1") == "1"         # 요일·공휴일 특징
+USE_GFS = os.environ.get("OIBC_GFS", "1") == "1"          # NOAA GFS 원본 상자 평균
 
 
 def load_ext(mode: str = "mean") -> pd.DataFrame | None:
@@ -136,7 +140,7 @@ def load_ext(mode: str = "mean") -> pd.DataFrame | None:
     root = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data_ext")
     out = None
     ghi_cols = []
-    for m in EXT_MODELS:
+    for m in EXT_MODELS + (EXT_MODELS_2024 if USE_2024 else []):
         path = os.path.join(root, f"openmeteo_{m}.parquet")
         if not os.path.exists(path):
             continue
@@ -156,6 +160,12 @@ def load_ext(mode: str = "mean") -> pd.DataFrame | None:
         g = f.groupby("ts")[cols].mean().add_prefix("ext_jx_")
         out = out.join(g, how="outer")
         ghi_cols += ["ext_jx_direct_radiation", "ext_jx_diffuse_radiation"]
+    gfs = os.path.join(root, "gfs_hourly.parquet")
+    if USE_GFS and os.path.exists(gfs):                        # NOAA GFS 원본 (src/fetch_gfs.py), 상자 평균
+        f = pd.read_parquet(gfs)
+        f["ts"] = f.ts.dt.tz_convert(TZ).astype(f"datetime64[ns, {TZ}]")
+        out = out.join(f.set_index("ts")[["gfs_ghi", "gfs_kcs", "gfs_tcc"]].add_prefix("ext_"), how="outer")
+        ghi_cols.append("ext_gfs_ghi")
     out["ext_ghi_ens"] = out[[c for c in ghi_cols if c.endswith("_ghi")]].mean(axis=1)
     out = out.reset_index().sort_values("ts")
     out["tday"] = target_day(out.ts)
@@ -213,12 +223,46 @@ def build_rich(base: pd.DataFrame, sites: pd.DataFrame, fa: pd.DataFrame, fb: pd
     d["hour"] = ts.hour.to_numpy().astype("int8")
     d["cap"] = d.capacity_kw.astype("float32")
     d["site_code"] = d.site_id.str[2:].astype("int16")
+    if CALENDAR:
+        cal = calendar(d.ts)
+        for c in cal.columns:
+            d[c] = cal[c].to_numpy()
     return d
 
 
 def rich_feats(d: pd.DataFrame) -> list[str]:
     drop = {"site_id", "ts", "energy", "smp", "current_group", "capacity_kw", "wa_station", "wb_station"}
     return [c for c in d.columns if c not in drop]
+
+
+# 임시공휴일·선거일 (공지상 사용 허용) — holidays 패키지에 없을 수 있는 날을 직접 추가
+EXTRA_OFF = ["2022-03-09", "2022-06-01", "2023-10-02", "2024-04-10", "2024-10-01", "2025-01-27", "2025-06-03",
+             "2026-06-03"]
+
+
+def off_days() -> set:
+    import holidays
+    kr = holidays.country_holidays("KR", years=range(2020, 2027))
+    return {pd.Timestamp(d) for d in kr} | {pd.Timestamp(d) for d in EXTRA_OFF}
+
+
+_OFF = None
+
+
+def calendar(ts: pd.Series) -> pd.DataFrame:
+    """대상일 기준 요일·주말·공휴일 (출력제어는 수요가 적은 휴일 낮에 몰림)."""
+    global _OFF
+    if _OFF is None:
+        _OFF = off_days()
+    day = target_day(pd.Series(ts)).dt.tz_localize(None)
+    dow = day.dt.dayofweek
+    hol = day.isin(_OFF)
+    off = (dow >= 5) | hol
+    prev_off = (day - pd.Timedelta(days=1)).isin(_OFF) | ((day - pd.Timedelta(days=1)).dt.dayofweek >= 5)
+    next_off = (day + pd.Timedelta(days=1)).isin(_OFF) | ((day + pd.Timedelta(days=1)).dt.dayofweek >= 5)
+    return pd.DataFrame({"dow": dow.astype("int8").to_numpy(), "is_hol": hol.astype("int8").to_numpy(),
+                         "is_off": off.astype("int8").to_numpy(),
+                         "off_run": (off & (prev_off | next_off)).astype("int8").to_numpy()})
 
 
 def grid(site_ids: pd.Series, start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:

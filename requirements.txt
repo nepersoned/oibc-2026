@@ -4,3 +4,7 @@ pyarrow>=15
 lightgbm>=4.3
 scikit-learn>=1.4
 optuna>=4.0
+holidays>=0.50
+xgboost>=2.0
+catboost>=1.2
+eccodes>=2.37

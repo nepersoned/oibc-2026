@@ -4,6 +4,25 @@
 
 ---
 
+## 🏁 현재 상황 (2026-11-04)
+
+| 항목 | 값 |
+| --- | --- |
+| 리더보드 | **6,455,051,853 (88위)** — `ens_ref`, 공식 베이스라인(6,418,396,513) 대비 +3,666만 원 |
+| 로컬 ↔ 리더보드 보정 | 로컬 감소분 3,741만 ↔ 리더보드 3,666만 (오차 2%) → **로컬 채점기 신뢰 가능** |
+| 목표 | 10위 ≈ 베이스라인 대비 −21.9%, 1위 ≈ −24.4% (평가 구간 베이스라인 페널티 ≈ 2.2억 역산) |
+| 로컬 최고 | **−19.8%** (발전소 모델 + GFS 그룹 모델 4년) |
+
+### 핵심 발견
+
+1. **오차의 절반은 "그날 하루가 얼마나 맑은가"** — 집합×일 총량을 완벽히 맞히면 W −49% (오라클). 시간대 모양·발전소 편향·구성은 작음.
+2. **제공 예보에는 일사량이 없다** → 외부 수치예보 일사량이 결정적. 단, 공지 5항에 따라 **고정 격자/상자 평균 하나로만** 모든 발전소에 같은 값.
+3. **신선도가 중요** — 같은 GFS 라도 Open-Meteo 48h 전 발행분보다 **NOAA 원본 D-1 00 UTC 실행분**(마감 전 공개)이 훨씬 효과적. 학습 기간 전체(2021~)를 덮어 학습 기간도 늘릴 수 있게 됨.
+4. **앙상블 다양성은 알고리즘이 아니라 정보원에서** — LGBM↔XGB 오차 상관 0.99, 발전소↔그룹 0.89, 외부데이터 유무 0.80. 반년 교차검증으로 고르면 3개 구성원만 남음.
+5. 봄철 주말·공휴일 낮 과대예측(+3.3% vs 평일 −1.9%) = 출력제어 흔적 → 요일·공휴일 특징 −0.5%.
+
+---
+
 ## 🚀 빠른 시작 (팀원용)
 
 ```bash
@@ -13,52 +32,70 @@ uv venv --python 3.12 .venv
 uv pip install --python .venv/Scripts/python.exe -r requirements.txt
 ```
 
-1. 대회 페이지에서 받은 `OIBC_2026_DATA.zip`을 저장소 루트에 풀어 `data/handover 2/01_participant_dataset/`가 되게 둡니다. (데이터는 git에 올라가지 않음)
-2. 검증 점수 확인 — 2024-06-01 이전으로 학습해 마지막 1년을 대회 식으로 채점 (약 3분)
+1. 대회 데이터 `OIBC_2026_DATA.zip` 을 풀어 `data/handover 2/01_participant_dataset/` 가 되게 둡니다 (git 제외).
+2. 외부 데이터 수집 (모두 공개·상업 이용 가능, 재수집 가능 — 아래 "외부 소스 기록")
    ```bash
-   .venv/Scripts/python.exe src/pipeline.py --mode val --tag 내실험이름
+   .venv/Scripts/python.exe src/fetch_external.py     # Open-Meteo (JMA/ECMWF/GFS 48h 전, JMA 추가 변수)   ~10분
+   .venv/Scripts/python.exe src/fetch_gfs.py          # NOAA GFS 원본 D-1 00z, 2021~                      ~30분
+   .venv/Scripts/python.exe src/fetch_gefs.py         # NOAA GEFS 평균+퍼짐 D-1 00z, 2021~                 ~40분
    ```
-3. 점수가 기록보다 좋으면 제출 파일 생성 (`submissions/`에 두 파일 + 형식 검사 자동 실행)
+3. 검증 (2024-06 이전 학습 → 마지막 1년을 대회 식으로 채점)
    ```bash
-   .venv/Scripts/python.exe src/pipeline.py --mode submit --tag 내실험이름
+   # 발전소 모델
+   .venv/Scripts/python.exe src/pipeline.py --mode val --fset rich --ext mean --tag 이름        --params '{"n_estimators":1800,"learning_rate":0.03,"num_leaves":255,"min_child_samples":100,"colsample_bytree":0.6}'
+   # 그룹 모델 (현재 최고 설정)
+   .venv/Scripts/python.exe src/agg_model.py --mode val --ext mean --train-years 4 --min-cov 0.1        --params '{"seeds":5,"num_leaves":15,"n_estimators":2500,"learning_rate":0.015}'        --bu outputs/val_<발전소태그>_sites.parquet --out outputs/val_agg_이름.parquet
+   # 앙상블 구성원 선별 (오차 상관 + 반년 교차검증)
+   .venv/Scripts/python.exe src/ensemble_select.py --sites <발전소태그들> --groups 이름:경로 ...
    ```
-4. [SUBMISSIONS.md](SUBMISSIONS.md)에 기록하고 제출
+4. 제출 파일: 각 모델 `--mode submit` → `src/ensemble.py fit/submit` → 형식 검사 자동 실행.
+5. [SUBMISSIONS.md](SUBMISSIONS.md)에 기록하고 제출. **제출 전에 표에 "예정"으로 먼저 적기** (팀 전체 하루 3회).
 
-### 코드 구조 — 어디를 고치면 되나
+### 코드 구조
 
-| 파일 | 역할 | 실험할 때 |
+| 파일 | 역할 |
+| --- | --- |
+| [`src/features.py`](src/features.py) | 예보 결합(라운드 17 우선·10 보조), 대상일 내 문맥, 전국 요약, 태양 위치·청천일사, 요일·공휴일, 외부 수치예보 로드 (`load_ext`) |
+| [`src/model.py`](src/model.py) | 발전소 모델 LightGBM `fit` / `predict` (설비이용률 타깃, 야간 0) |
+| [`src/pipeline.py`](src/pipeline.py) | 발전소 모델 학습 → 예측 → 채점/제출 (`--fset rich --ext mean`) |
+| [`src/agg_model.py`](src/agg_model.py) | 그룹 모델 — 집합 CF 직접 예측 (집합 용량가중 예보 + 전 관측지점 예보 + 외부 수치예보), 시드 배깅, `algo` lgb/xgb/cat |
+| [`src/alt_models.py`](src/alt_models.py) | 다른 각도 구성원: 지역(61) / 아날로그(kNN) / 선형(Ridge) |
+| [`src/weather_model.py`](src/weather_model.py) | 날씨 보정 — 예보 → 실측 구름·자외선 (학습 구간 실측은 정답으로만) |
+| [`src/daily_model.py`](src/daily_model.py) | 일일 총량 모델 (실험, 미채택) |
+| [`src/ensemble.py`](src/ensemble.py) · [`src/ensemble_select.py`](src/ensemble_select.py) | 앙상블 비율 / 구성원 선별 |
+| [`src/composition.py`](src/composition.py) | G1/G2 구성 최적화 (국소탐색 + HiGHS MILP) |
+| [`src/fetch_external.py`](src/fetch_external.py) · [`src/fetch_gfs.py`](src/fetch_gfs.py) · [`src/fetch_gefs.py`](src/fetch_gefs.py) | 외부 수치예보 수집 |
+| [`src/scoring.py`](src/scoring.py) | 로컬 정산금 S (리더보드와 오차 2%) |
+| [`src/validate_submission.py`](src/validate_submission.py) | 공식 제출 형식 검사기 |
+| `src/analyze_*.py`, `src/inspect_data.py` | 오라클·잔차·시차 분석 (집계값만 출력) |
+
+### 실험 기록 (검증 구간 2024-06 ~ 2025-05, 페널티 W — 작을수록 좋음)
+
+| 실험 | W (원) | 베이스라인 대비 |
 | --- | --- | --- |
-| [`src/features.py`](src/features.py) | 예보 결합 · 태양 위치 · 특징 목록 `FEATS` | 새 특징 추가 |
-| [`src/model.py`](src/model.py) | `fit` / `predict` (현재 LightGBM, 설비이용률 타깃) | 모델·하이퍼파라미터·손실 변경 |
-| [`src/pipeline.py`](src/pipeline.py) | 학습 → 예측 → 채점/제출 | 라운드 결합 방식, 학습 기간 |
-| [`src/scoring.py`](src/scoring.py) | 로컬 정산금 S 계산 (발전소별 예측 + 구성) | 거의 안 건드림 |
-| [`src/validate_submission.py`](src/validate_submission.py) | 공식 제출 형식 검사기 | 건드리지 않음 |
-| [`src/inspect_data.py`](src/inspect_data.py) | 데이터 무결성 점검 (집계값만) | — |
+| `baseline` 공식 baseline 재현 | 224,547,074 | — |
+| `rich` 특징 확장 (두 라운드, 대상일 문맥, 전국 요약, 발전소 ID, 청천일사) | 204,043,129 | −9.1% |
+| + 큰 LGBM | 202,236,002 | −9.9% |
+| `rich_ext` + 외부 일사 전국평균 (Open-Meteo 48h) | 194,364,200 | −13.4% |
+| `rich_extx` + JMA 층별 구름·직달/산란 | 191,546,932 | −14.7% |
+| `ens_ref` 발전소 61.5% + 그룹 38.5% — **1번 제출 (LB 88위)** | 187,133,757 | −16.7% |
+| `site_cal` + 요일·공휴일 | 190,497,019 (단독) | −15.2% |
+| 그룹 모델 작은 트리 + 시드 5 + 요일 → 발전소와 혼합 | 185,186,592 | −17.5% |
+| 반년 교차검증으로 고른 3구성원 (발전소, 그룹, 날씨보정 v1) | 184,880,195 (CV) | −17.7% |
+| **그룹 모델 + NOAA GFS 원본, 4년 학습 → 발전소와 혼합** | **180,060,649** | **−19.8%** |
 
-### 현재 기록 (검증 구간 2024-06 ~ 2025-05)
+효과 없음/미채택: 학습 가중(k, SMP×k) · 발전소 모델 3년 학습(GFS 이전) · L1 목적함수 · Optuna(단일 내부연도 → 과적합) · 일일 총량 재조정(−0.3%) · XGBoost/CatBoost 그룹(LGBM 과 오차 상관 0.99) · 지역/아날로그/선형(교차검증 탈락) · 출력 상한 클리핑 · 직전 눈 예보
 
-| 실험 | S (원) | 페널티 W (원) | W/매출 | G1 nMAE | G2 nMAE |
-| --- | --- | --- | --- | --- | --- |
-| `baseline` — 공식 baseline 재현 (참조 구성, LGBM, 2년, 라운드 평균) | 7,273,036,413 | 224,547,074 | 2.995% | 13.23% | 13.70% |
-| `rich` — 특징 확장 (두 라운드, 대상일 내 문맥, 전국 요약, 발전소 ID, 청천일사) | 7,293,540,358 | 204,043,129 | 2.721% | 11.97% | 12.61% |
-| `rich_extx` — + 큰 LGBM + 외부 일사량 전국평균 (JMA/ECMWF/GFS, 48h 전 발행) + JMA 층별 구름·직달/산란 | 7,306,036,555 | 191,546,932 | 2.555% | 11.26% | 11.67% |
-| **`ens_ref`** — rich_extx 61.5% + 집합 모델 38.5% | 7,310,449,730 | **187,133,757** | 2.496% | | |
-| **`ens_opt`** — 위 + 국소탐색 구성 (in-sample) | 7,314,868,786 | **182,714,701** | 2.437% | | |
+구성 최적화: 같은 해 −2.3%, 반년 교차 −0.8~−1.0% → 2번 제출 후보(`ens_opt`).
 
-실험 결과 메모: 학습 가중(k, SMP×k) ±0.5% 악화 · 학습 3년 +0.9% 악화 · L1 목적함수 +0.4% 악화 · 1단계 날씨 보정 모델 +0.5% 악화 · 일일 총량 모델 −0.28% (미채택) · 집합 모델 Optuna 단일 내부연도 → 과적합 (미채택) · 구성 최적화 반년 교차검증 −0.8~−1.0%
+### 다음 할 일
 
-> 새 실험이 기록을 넘으면 이 표에 한 줄 추가해 주세요. **W가 작을수록 좋습니다.**
-
-### 💡 실험 아이디어 (가져갈 사람 이름 적기)
-
-- [ ] **구성 최적화** — 그룹 안에서 오차가 상쇄되도록 발전소 배정 (발전소별 검증 예측 `outputs/val_*_sites.parquet` 활용)
-- [ ] **손실 가중** — 채점이 SMP × k(11~15시 3배)로 가중되므로 `sample_weight`에 반영
-- [ ] **집합 단위 보정** — 발전소별 예측 합 → 집합 단위 잔차 보정 모델
-- [ ] **라운드 결합** — 10·17 평균 대신 17 위주 / 가중 평균 / 둘 다 특징으로
-- [ ] **특징** — 청천일사량(clear-sky), 같은 지점 주변 시각 예보(lag/lead), 발전소별 과거 평균 설비이용률
-- [ ] **학습 기간** — `--train-years` 2 → 3, 4
-- [ ] **평가 예보 A 결손 264행** 대체 방식 (현재 NaN 그대로 LightGBM에 넘김)
-- [ ] **출력제어 · 장애** 시각 처리 (실적에 그대로 포함됨)
+- [ ] 발전소 모델에 GFS + 학습 기간 3~4년
+- [ ] NOAA GEFS 평균 + 퍼짐(예보 불확실성)
+- [ ] 기상청 LDAPS / API허브 "에너지(태양광)" (공공누리 1유형, 인증키 필요 — `.env` 의 `KMA_API_KEY`)
+- [ ] 날씨 보정 v2 (모든 수치예보 → 실측 자외선·구름, MOS)
+- [ ] 최종: 반년 교차검증 선별 → 구성 최적화 → 제출용 학습
+- [ ] 발표용 SHAP 그림
 
 ---
 
@@ -312,7 +349,10 @@ uv pip install --python .venv/Scripts/python.exe -r requirements.txt
 | 이름 | 출처 URL | 받는 방법 | 라이선스 (상업적 이용) | 비고 |
 | --- | --- | --- | --- | --- |
 | Open-Meteo Previous Runs API — JMA Seamless, ECMWF IFS 0.25°, GFS Seamless 의 `shortwave_radiation_previous_day2`, `cloud_cover_previous_day2` | https://previous-runs-api.open-meteo.com/v1/forecast (문서 https://open-meteo.com/en/docs/previous-runs-api) | `python src/fetch_external.py` → `data_ext/` | 데이터 CC BY 4.0 (https://open-meteo.com/en/licence). 무료 API 는 비상업 조건 → **운영진 문의 중** | 유효시각 48시간 전 발행분만 사용 (전날 00시 이전 발행). 한반도 고정 격자 25점(위도 34.75~37.75, 경도 126.5~129.5, 0.75° 간격), 발전소 좌표 미사용, 모든 발전소에 같은 값 |
-| LightGBM, pandas, numpy, pyarrow, scikit-learn, scipy(HiGHS) | PyPI | `requirements.txt` | MIT / BSD | |
+| **NOAA GFS 0.25°/1° 원본** — `DSWRF:surface`, `TCDC:entire atmosphere` (구간 평균) | https://noaa-gfs-bdp-pds.s3.amazonaws.com (https://registry.opendata.aws/noaa-gfs-bdp-pds/) | `python src/fetch_gfs.py` → `data_ext/gfs_hourly.parquet` | 미국 정부 공개 데이터 (NOAA Open Data, 상업 이용 제한 없음) | **D-1 00 UTC 실행분만** (보통 D-1 03~05 UTC 공개 < 마감 08 UTC), 리드 16~39h. 한반도 고정 상자(34~38°N, 126~129°E) 평균 하나, 발전소 좌표 미사용 |
+| **NOAA GEFS 0.5°** — 앙상블 평균(`geavg`)·표준편차(`gespr`)의 DSWRF, TCDC | https://noaa-gefs-pds.s3.amazonaws.com (https://registry.opendata.aws/noaa-gefs/) | `python src/fetch_gefs.py` → `data_ext/gefs_hourly.parquet` | 미국 정부 공개 데이터 | GFS 와 같은 규칙 (D-1 00z, 고정 상자 평균) |
+| (예정) 기상청 수치예보모델 LDAPS / API허브 에너지(태양광) | https://apihub.kma.go.kr (공공데이터포털 15139467) | 인증키 (`.env` 의 `KMA_API_KEY`) | **공공누리 제1유형** (출처표시, 상업 이용 가능) | 운영진 확인 후 사용 |
+| LightGBM, XGBoost, CatBoost, pandas, numpy, pyarrow, scikit-learn, scipy(HiGHS), optuna, holidays, eccodes | PyPI | `requirements.txt` | MIT / BSD / Apache-2.0 | |
 
 ---
 

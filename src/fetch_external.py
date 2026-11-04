@@ -29,6 +29,8 @@ URL = "https://previous-runs-api.open-meteo.com/v1/forecast"
 LATS = [34.75, 35.5, 36.25, 37.0, 37.75]
 LONS = [126.5, 127.25, 128.0, 128.75, 129.5]
 MODELS = ["ecmwf_ifs025", "jma_seamless", "gfs_seamless"]
+# 2024년부터 아카이브가 있는 추가 모델 (평가 구간 전체 + 학습 후반부)
+MODELS_2024 = ["icon_seamless", "gem_seamless", "meteofrance_seamless", "cma_grapes_global", "bom_access_global"]
 VARS = ["shortwave_radiation_previous_day2", "cloud_cover_previous_day2"]
 YEARS = [("2021-01-01", "2021-12-31"), ("2022-01-01", "2022-12-31"), ("2023-01-01", "2023-12-31"),
          ("2024-01-01", "2024-12-31"), ("2025-01-01", "2025-12-31"), ("2026-01-01", "2026-06-01")]
@@ -77,13 +79,13 @@ def main() -> None:
         f.drop(columns="time").to_parquet(extra, index=False)
         cov = f.groupby(f.ts.dt.year).direct_radiation.apply(lambda x: x.notna().mean()).round(2).to_dict()
         print(f"jma_extra: {len(f):,}행, 연도별 직달일사 커버리지 {cov}")
-    for model in MODELS:
+    for model in MODELS + MODELS_2024:
         path = os.path.join(OUT, f"openmeteo_{model}.parquet")
         if os.path.exists(path):
             print(f"{model}: 이미 있음")
             continue
         parts = []
-        for s, e in YEARS:
+        for s, e in (YEARS[3:] if model in MODELS_2024 else YEARS):
             parts.append(fetch(model, s, e))
             print(f"{model} {s[:4]} 완료", flush=True)
             time.sleep(3)
