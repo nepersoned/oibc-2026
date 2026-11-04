@@ -1,0 +1,31 @@
+# 대회 제공 데이터 (외부 공유 금지)
+data/
+*.csv
+*.parquet
+*.zip
+
+# 데이터에서 만들어진 산출물 (예측값·모델)
+outputs/
+submissions/
+*.pkl
+*.joblib
+*.txt.model
+
+# 이 프로젝트와 무관한 파일
+screencapture-*.pdf
+wikipedia_data.html
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+venv/
+.env
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.claude/settings.local.json
