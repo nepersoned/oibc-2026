@@ -6,6 +6,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src" / "validation"))
 from compare_candidates import compare, fit_alpha, validate
+from build_group_comparison import build
 
 
 class CandidateComparisonTests(unittest.TestCase):
@@ -25,6 +26,16 @@ class CandidateComparisonTests(unittest.TestCase):
                           "smp": [100.], "team": [None], "candidate": [2.]})
         with self.assertRaises((TypeError, ValueError)):
             validate(d)
+
+    def test_site_table_requires_identical_observed_coverage(self):
+        ts = pd.Timestamp("2023-01-01 11:00",tz="Asia/Seoul")
+        actual = pd.DataFrame({"site_id": ["a", "b"], "ts": [ts, ts], "energy": [2., 3.]})
+        pred = pd.DataFrame({"site_id": ["a", "b"], "ts": [ts, ts], "kwh": [2., 4.]})
+        comp = pd.Series(["G1", "G1"], index=["a", "b"])
+        smp = pd.Series([10.], index=[ts])
+        self.assertEqual(build(actual, comp, smp, pred, pred).team.iloc[0], 6.)
+        with self.assertRaises(ValueError):
+            build(actual, comp, smp, pred, pred.iloc[:1])
 
 
 if __name__ == "__main__":

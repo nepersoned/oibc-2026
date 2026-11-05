@@ -63,6 +63,7 @@ def main():
         m[c+"_site_pen"] = m.weight*(m[c]-m.energy).abs()
     h=m.groupby(["group","ts"],as_index=False).agg(act=("energy","sum"),base=("base","sum"),candidate=("candidate","sum"),
                 base_site_pen=("base_site_pen","sum"),candidate_site_pen=("candidate_site_pen","sum"),weight=("weight","first"))
+    del m, actual, p
     h["day"] = cal.day(h.ts)
     rev = revisions()
     train = rev[(rev.index >= pd.Timestamp("2023-06-01",tz=sc.TZ)) & (rev.index < pd.Timestamp("2024-06-01",tz=sc.TZ))].dropna()
@@ -70,7 +71,7 @@ def main():
         raise ValueError("insufficient prior forecast revision history")
     threshold = float(train.quantile(.75))
     h["revision"] = h.day.map(rev)
-    h["revision_class"] = np.select([h.revision.isna(), h.revision >= threshold], ["missing", "high"], default="other")
+    h["revision_class"] = np.select([h.revision.isna(), h.revision > threshold], ["missing", "high"], default="other")
     h=h.join(cal.build_weather(a.weather)[["clearness"]],on="day")
     h["sky"]=np.select([h.clearness < .35,h.clearness > .65],["cloudy","clear"],default="other_or_missing")
     try:
@@ -83,7 +84,9 @@ def main():
     for c in ("base","candidate"):
         h[c+"_pen"]=h.weight*(h[c]-h.act).abs()
         h[c+"_signed"]=h.weight*(h[c]-h.act)
-    result={"revision_q75_from_prior_year":threshold,"prior_revision_days":int(len(train)),"slices":{}}
+    result={"revision_q75_from_prior_year":threshold,"prior_revision_days":int(len(train)),
+            "prior_revision_positive_days":int((train > 0).sum()),
+            "prior_revision_q95":float(train.quantile(.95)),"slices":{}}
     for subset, d in (("all",h),("midday",h[h.ts.dt.hour.between(11,15)])):
         result["slices"][subset]={}
         for key in ("period","group","sky","revision_class","daytype","base_error_sign"):
