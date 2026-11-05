@@ -112,7 +112,8 @@ def factors(train, test, name):
             print(f"{name} {group}: no usable forecast days; fallback factor=1", flush=True)
             continue
         if len(tr) < 30:
-            raise ValueError(f"insufficient history for {name}/{group}: {len(tr)}")
+            print(f"{name} {group}: insufficient history ({len(tr)}); fallback factor=1", flush=True)
+            continue
         if name == "D_lgb":
             models = [lgb.LGBMRegressor(n_estimators=150, learning_rate=0.03, num_leaves=7,
                        min_child_samples=20, reg_lambda=5, verbosity=-1, n_jobs=2,

@@ -31,6 +31,12 @@ class CalibrationTests(unittest.TestCase):
             data.to_parquet(path)
             self.assertFalse(bool(cal.build_weather(path).iloc[0].valid))
 
+    def test_insufficient_group_history_falls_back(self):
+        train = pd.DataFrame({"group": ["G1"], "valid": [True], "coverage": [0.05],
+                              "hours": [24], "ratio": [1.2], "ghi": [100.]})
+        test = pd.DataFrame({"group": ["G1"], "valid": [True], "ghi": [100.]})
+        self.assertEqual(cal.factors(train, test, "B_ghi")[0], 1.)
+
 
 if __name__ == "__main__":
     unittest.main()
