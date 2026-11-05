@@ -142,14 +142,23 @@ def scores(h, daily, factors_by_name):
         d["daytype"] = np.where(d.day.dt.dayofweek >= 5, "weekend_or_holiday", "weekday_or_holiday")
     d["error_sign"] = np.where(d.pred >= d.act, "over_or_equal", "under")
     baseerr = d.pred - d.act
+    baseline_daily = (d.weight * baseerr.abs()).groupby(d.day).sum().sort_index()
+    rng = np.random.default_rng(20261106)
+    days = len(baseline_daily)
+    blocks = [np.arange(i, min(i + 7, days)) for i in range(0, days, 7)]
+    draws = rng.integers(0, len(blocks), size=(2000, len(blocks)))
     out = {}
     for name in factors_by_name:
         err = d.pred * d[name] - d.act
         pen = d.weight * err.abs()
         total = float(pen.sum())
         daily_error = (d.assign(p=d.pred*d[name]).groupby(["group", "day"])[["p", "act"]].sum().eval("p-act").abs().mean())
+        delta_day = pen.groupby(d.day).sum().reindex(baseline_daily.index).to_numpy() - baseline_daily.to_numpy()
+        block_delta = np.array([delta_day[ix].sum() for ix in blocks])
+        ci = np.quantile(block_delta[draws].sum(axis=1), [0.025, 0.975])
         out[name] = {"W": total, "midday_W": float(pen[d.ts.dt.hour.between(11,15)].sum()),
                      "daily_mae": float(daily_error), "residual_corr_baseline": float(err.corr(baseerr)),
+                     "bootstrap_delta_W_ci95": ci.tolist(),
                      "monthly_W": pen.groupby(d.month).sum().to_dict(),
                      "segments": {key: pen.groupby(d[key]).sum().to_dict() for key in ("period", "season", "sky", "daytype", "error_sign")}}
     return out
