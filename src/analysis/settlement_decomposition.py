@@ -61,7 +61,9 @@ def decompose(frame: pd.DataFrame) -> dict:
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--pred-group", required=True)
+    prediction = ap.add_mutually_exclusive_group(required=True)
+    prediction.add_argument("--pred-group")
+    prediction.add_argument("--pred-site", help="site_id, ts, kwh; aggregate on actual observed site-hours")
     ap.add_argument("--start", required=True)
     ap.add_argument("--end", required=True)
     ap.add_argument("--composition")
@@ -73,9 +75,18 @@ def main():
     actual = sc.load_actual(a.start, a.end)
     if actual.duplicated(["site_id", "ts"]).any() or actual.site_id.map(comp).isna().any():
         raise ValueError("duplicate actuals or missing group")
-    actual = actual.assign(group=actual.site_id.map(comp)).groupby(["group", "ts"], as_index=False).energy.sum().rename(columns={"energy": "act"})
-    pred = pd.read_parquet(a.pred_group) if a.pred_group.endswith(".parquet") else pd.read_csv(a.pred_group)
+    actual = actual.assign(group=actual.site_id.map(comp))
+    path = a.pred_group or a.pred_site
+    pred = pd.read_parquet(path) if path.endswith(".parquet") else pd.read_csv(path)
     pred["ts"] = sc.to_ts(pred.ts)
+    if a.pred_site:
+        if pred.duplicated(["site_id", "ts"]).any():
+            raise ValueError("duplicate site prediction keys")
+        joined = actual.merge(pred[["site_id", "ts", "kwh"]], on=["site_id", "ts"], how="left", validate="one_to_one")
+        if joined.kwh.isna().any() or not np.isfinite(joined.kwh).all() or (joined.kwh < 0).any():
+            raise ValueError("missing, non-finite or negative observed-site predictions")
+        pred = joined.groupby(["group", "ts"], as_index=False).kwh.sum().rename(columns={"kwh": "pred"})
+    actual = actual.groupby(["group", "ts"], as_index=False).energy.sum().rename(columns={"energy": "act"})
     if pred.duplicated(["group", "ts"]).any():
         raise ValueError("duplicate prediction keys")
     merged = actual.merge(pred[["group", "ts", "pred"]], on=["group", "ts"], how="left", validate="one_to_one")
