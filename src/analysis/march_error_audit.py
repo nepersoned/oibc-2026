@@ -70,8 +70,10 @@ def main():
     if len(train) < 30:
         raise ValueError("insufficient prior forecast revision history")
     threshold = float(train.quantile(.75))
+    very_high = float(train.quantile(.95))
     h["revision"] = h.day.map(rev)
     h["revision_class"] = np.select([h.revision.isna(), h.revision > threshold], ["missing", "high"], default="other")
+    h["revision_q95_class"] = np.select([h.revision.isna(), h.revision > very_high], ["missing", "above_prior_q95"], default="other")
     h=h.join(cal.build_weather(a.weather)[["clearness"]],on="day")
     h["sky"]=np.select([h.clearness < .35,h.clearness > .65],["cloudy","clear"],default="other_or_missing")
     try:
@@ -86,10 +88,10 @@ def main():
         h[c+"_signed"]=h.weight*(h[c]-h.act)
     result={"revision_q75_from_prior_year":threshold,"prior_revision_days":int(len(train)),
             "prior_revision_positive_days":int((train > 0).sum()),
-            "prior_revision_q95":float(train.quantile(.95)),"slices":{}}
+            "prior_revision_q95":very_high,"slices":{}}
     for subset, d in (("all",h),("midday",h[h.ts.dt.hour.between(11,15)])):
         result["slices"][subset]={}
-        for key in ("period","group","sky","revision_class","daytype","base_error_sign"):
+        for key in ("period","group","sky","revision_class","revision_q95_class","daytype","base_error_sign"):
             table=d.groupby(["period",key] if key!="period" else ["period"],dropna=False).agg(
                 base_W=("base_pen","sum"),candidate_W=("candidate_pen","sum"),
                 base_site_W=("base_site_pen","sum"),candidate_site_W=("candidate_site_pen","sum"),

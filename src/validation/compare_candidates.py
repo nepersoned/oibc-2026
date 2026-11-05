@@ -70,6 +70,7 @@ def compare(train, evaluation):
         daily = (ts - pd.Timedelta(hours=1)).dt.floor("D")
         result["models"][name] = {"W": float(penalty.sum()),
             "monthly_W": penalty.groupby(daily.dt.strftime("%Y-%m")).sum().to_dict(),
+            "daily_W": penalty.groupby(daily.dt.strftime("%Y-%m-%d")).sum().to_dict(),
             "daily_penalty_mean": float(penalty.groupby(daily).sum().mean())}
     return result
 
