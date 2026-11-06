@@ -85,6 +85,7 @@ def main() -> None:
     ap.add_argument("--probe", action="store_true")
     ap.add_argument("--sat", action="store_true", help="천리안2A 위성 일사량 수집 (학습 정답용)")
     ap.add_argument("--um", action="store_true", help="UM 국지모델(LDAPS) 일사량 예보 수집 (D-1 00UTC)")
+    ap.add_argument("--group", default="UMKR", choices=list(UM_GROUPS), help="UMKR 국지 | UMRG 지역 | UMGL 전구")
     ap.add_argument("--start", default="2021-01-01")
     ap.add_argument("--end", default="2025-05-31")
     a = ap.parse_args()
@@ -93,7 +94,7 @@ def main() -> None:
     if a.sat:
         fetch_sat(a.start, a.end)
     if a.um:
-        fetch_um(a.start, a.end)
+        fetch_um(a.start, a.end, group=a.group)
 
 
 
@@ -172,8 +173,11 @@ UM_OUT = os.path.join(ROOT, "data_ext", "kma_um_hourly.parquet")
 UM_VARS = {"4200": "um_ghi", "4198": "um_dir", "4199": "um_dif"}
 
 
-def um_run(tmfc: str, lat: float, lon: float) -> list[tuple[str, str, float]]:
-    q = urllib.parse.urlencode({"group": "UMKR", "nwp": "N512", "data": "U", "varn": ",".join(UM_VARS),
+UM_GROUPS = {"UMKR": ("kma_um", "um"), "UMRG": ("kma_umrg", "umrg"), "UMGL": ("kma_umgl", "umgl")}   # 국지 1.5km / 지역 12km / 전구
+
+
+def um_run(tmfc: str, lat: float, lon: float, group: str = "UMKR") -> list[tuple[str, str, float]]:
+    q = urllib.parse.urlencode({"group": group, "nwp": "N512", "data": "U", "varn": ",".join(UM_VARS),
                                 "tmfc": tmfc, "ef": "15,39,1", "lat": lat, "lon": lon, "authKey": api_key()})
     for t in range(4):
         try:
@@ -197,36 +201,42 @@ def um_run(tmfc: str, lat: float, lon: float) -> list[tuple[str, str, float]]:
     return []
 
 
-def fetch_um(start: str, end: str, workers: int = 4) -> None:
+def fetch_um(start: str, end: str, workers: int = 4, group: str = "UMKR") -> None:
     import json
     from concurrent.futures import ThreadPoolExecutor
     import pandas as pd
-    os.makedirs(UM_RAW, exist_ok=True)
+    raw = os.path.join(ROOT, "data_ext", UM_GROUPS[group][0] + "_raw")
+    os.makedirs(raw, exist_ok=True)
     days = [d for d in pd.date_range(start, end, freq="D")]
-    todo = [d for d in days if not os.path.exists(os.path.join(UM_RAW, d.strftime("%Y%m%d") + ".json"))]
-    print(f"UM 국지(LDAPS): {len(todo)}/{len(days)}일 (지점 {len(SAT_POINTS)}개, 호출 {len(todo) * len(SAT_POINTS):,}건)", flush=True)
+    todo = [d for d in days if not os.path.exists(os.path.join(raw, d.strftime("%Y%m%d") + ".json"))]
+    print(f"UM {group}: {len(todo)}/{len(days)}일 (지점 {len(SAT_POINTS)}개, 호출 {len(todo) * len(SAT_POINTS):,}건)", flush=True)
 
     def one(d):
         tmfc = (d - pd.Timedelta(days=1)).strftime("%Y%m%d") + "00"         # D-1 00 UTC
-        res = [um_run(tmfc, la, lo) for la, lo in SAT_POINTS]
-        json.dump(res, open(os.path.join(UM_RAW, d.strftime("%Y%m%d") + ".json"), "w"))
+        res = [um_run(tmfc, la, lo, group) for la, lo in SAT_POINTS]
+        if not any(res):                                                     # 전 지점 실패(한도·장애) → 저장 안 함, 다음에 재시도
+            return
+        json.dump(res, open(os.path.join(raw, d.strftime("%Y%m%d") + ".json"), "w"))
 
     t0 = time.time()
     with ThreadPoolExecutor(workers) as ex:
         for i, _ in enumerate(ex.map(one, todo), 1):
             if i % 100 == 0:
                 print(f"  {i}/{len(todo)}  {time.time() - t0:.0f}s", flush=True)
-    build_um()
+    build_um(group)
 
 
-def build_um() -> None:
+def build_um(group: str = "UMKR") -> None:
     import json
     import pandas as pd
+    raw_dir, pre = UM_GROUPS[group]
+    raw = os.path.join(ROOT, "data_ext", raw_dir + "_raw")
+    out_path = os.path.join(ROOT, "data_ext", raw_dir + "_hourly.parquet")
     recs = []
-    for f in sorted(os.listdir(UM_RAW)):
-        for pi, rows in enumerate(json.load(open(os.path.join(UM_RAW, f)))):
+    for f in sorted(os.listdir(raw)):
+        for pi, rows in enumerate(json.load(open(os.path.join(raw, f)))):
             for tmef, v, x in rows:
-                recs.append((tmef, UM_VARS[v], pi, x))
+                recs.append((tmef, UM_VARS[v].replace("um_", pre + "_"), pi, x))
     if not recs:
         print("UM 자료 없음"); return
     df = pd.DataFrame(recs, columns=["tmef", "var", "pt", "val"])
@@ -235,9 +245,9 @@ def build_um() -> None:
     w.index = pd.to_datetime(w.index, format="%Y%m%d%H").tz_localize("UTC").tz_convert("Asia/Seoul")
     w = w.sort_index()
     w.index.name = "ts"
-    w.reset_index().to_parquet(UM_OUT, index=False)
-    print(f"저장: {UM_OUT}  {len(w):,}행  연도별 커버리지 "
-          f"{w.um_ghi.notna().groupby(w.index.year).mean().round(2).to_dict()}", flush=True)
+    w.reset_index().to_parquet(out_path, index=False)
+    print(f"저장: {out_path}  {len(w):,}행  연도별 커버리지 "
+          f"{w[pre + '_ghi'].notna().groupby(w.index.year).mean().round(2).to_dict()}", flush=True)
 
 
 if __name__ == "__main__":
