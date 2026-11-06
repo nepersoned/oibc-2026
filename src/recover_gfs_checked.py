@@ -22,7 +22,6 @@ import pandas as pd
 optional = Path(__file__).resolve().parents[2] / "oibc-dependencies"
 if optional.is_dir():
     sys.path.append(str(optional))
-import eccodes  # noqa: F401
 import fetch_gfs as g
 
 

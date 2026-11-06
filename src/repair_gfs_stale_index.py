@@ -19,7 +19,6 @@ import pandas as pd
 optional=Path(__file__).resolve().parents[2]/"oibc-dependencies"
 if optional.is_dir():
     sys.path.append(str(optional))
-import eccodes
 import fetch_gfs as g
 
 IDENTITY={"DSWRF":("sdswrf","surface",260087), "TCDC":("tcc","atmosphere",228164)}
@@ -35,6 +34,7 @@ def metadata_matches(metadata, key, date, begin, end):
 
 
 def metadata(message):
+    import eccodes
     h=eccodes.codes_new_from_message(message)
     try:
         return {k:eccodes.codes_get(h,k) for k in KEYS}
