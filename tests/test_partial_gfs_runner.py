@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
+import numpy as np
 from pandas.testing import assert_frame_equal
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"src"/"analysis"))
@@ -28,6 +29,14 @@ class PartialGFSFeatureTests(unittest.TestCase):
                 expected=runner.F.load_ext("mean")
                 actual=runner.attach_gfs(base,raw)
             assert_frame_equal(actual.sort_index(axis=1),expected.sort_index(axis=1),check_dtype=True)
+
+    def test_missing_noaa_value_stays_missing(self):
+        ts=pd.date_range("2024-06-01 11:00",periods=2,freq="h",tz="Asia/Seoul")
+        base=pd.DataFrame({"ts":ts,"ext_jma_seamless_ghi":[100.,200.],"ext_ghi_ens":[100.,200.]})
+        raw=pd.DataFrame({"ts":ts,"gfs_ghi":[np.nan,50.],"gfs_kcs":[np.nan,.5],"gfs_tcc":[np.nan,40.]})
+        out=runner.attach_gfs(base,raw)
+        self.assertTrue(pd.isna(out.ext_gfs_ghi.iloc[0]))
+        self.assertEqual(out.ext_ghi_ens.iloc[0],100.)
 
 
 if __name__=="__main__":
