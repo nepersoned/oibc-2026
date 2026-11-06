@@ -12,6 +12,24 @@ from typing import Mapping
 import numpy as np
 
 
+def validate_grib_metadata(meta: Mapping[str, object], variable: str) -> None:
+    """Reject a message that is not the expected averaged DSWRF/TCDC field."""
+    expected = {
+        "DSWRF": ("sdswrf", "surface"),
+        "TCDC": ("tcc", "atmosphere"),
+    }
+    if variable not in expected:
+        raise ValueError(f"unsupported spatial variable: {variable}")
+    short, level = expected[variable]
+    if meta.get("shortName") != short or meta.get("typeOfLevel") != level:
+        raise ValueError(f"unexpected {variable} variable or level")
+    if meta.get("stepType") != "avg":
+        raise ValueError(f"{variable} must be an averaged forecast field")
+    start, end = meta.get("startStep"), meta.get("endStep")
+    if not isinstance(start, (int, float)) or not isinstance(end, (int, float)) or end <= start:
+        raise ValueError(f"invalid {variable} averaging interval")
+
+
 def summarize_arrays(ghi: np.ndarray, tcc: np.ndarray, previous: Mapping[str, np.ndarray] | None = None) -> dict[str, float]:
     """Return A1/A2 summaries for two same-shaped fixed-grid arrays.
 
@@ -91,6 +109,10 @@ def decode_fixed_box_with_metadata(grib: bytes, lat_min: float = 34.0, lat_max: 
     finally:
         eccodes.codes_release(h)
     grid = vals.reshape(nj, ni)
+    if meta.get("shortName") == "sdswrf":
+        validate_grib_metadata(meta, "DSWRF")
+    elif meta.get("shortName") == "tcc":
+        validate_grib_metadata(meta, "TCDC")
     lats = lat0 - np.arange(nj) * dlat if lat0 > 0 else lat0 + np.arange(nj) * dlat
     lons = (lon0 + np.arange(ni) * dlon) % 360
     yi = np.flatnonzero((lats >= lat_min) & (lats <= lat_max))

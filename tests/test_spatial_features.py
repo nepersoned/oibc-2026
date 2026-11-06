@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from src.spatial_features import summarize_arrays
+from src.spatial_features import summarize_arrays, validate_grib_metadata
 
 
 class SpatialFeatureTests(unittest.TestCase):
@@ -21,6 +21,17 @@ class SpatialFeatureTests(unittest.TestCase):
         self.assertEqual(out["sp_ghi_p50"], 1.0)
         with self.assertRaises(ValueError):
             summarize_arrays(np.ones((2, 2)), np.ones((2, 3)))
+
+    def test_metadata_and_temporal_contract(self):
+        meta = {"shortName": "sdswrf", "typeOfLevel": "surface", "stepType": "avg",
+                "startStep": 12, "endStep": 15}
+        validate_grib_metadata(meta, "DSWRF")
+        with self.assertRaises(ValueError):
+            validate_grib_metadata({**meta, "stepType": "instant"}, "DSWRF")
+        with self.assertRaises(ValueError):
+            validate_grib_metadata({**meta, "endStep": 12}, "DSWRF")
+        out = summarize_arrays(np.ones((2, 2)), np.ones((2, 2)))
+        self.assertNotIn("sp_ghi_change_mean", out)
 
 
 if __name__ == "__main__":
