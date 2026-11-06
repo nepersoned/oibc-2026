@@ -127,6 +127,7 @@ EXT_MODELS_2024 = ["icon_seamless", "gem_seamless", "meteofrance_seamless", "cma
 USE_2024 = os.environ.get("OIBC_EXT2024", "0") == "1"      # 실험 스위치
 CALENDAR = os.environ.get("OIBC_CAL", "1") == "1"         # 요일·공휴일 특징
 USE_GFS = os.environ.get("OIBC_GFS", "1") == "1"          # NOAA GFS 원본 상자 평균
+USE_UMPTS = os.environ.get("OIBC_UMPTS", "0") == "1"       # LDAPS 고정 5지점 값을 별도 열로
 USE_OPENMETEO = os.environ.get("OIBC_OPENMETEO", "0") == "1"  # Open-Meteo: 운영진 답변으로 사용 불가 → 기본 꺼짐
 USE_GEFS = os.environ.get("OIBC_GEFS", "1") == "1"        # NOAA GEFS 평균·퍼짐
 USE_UM = os.environ.get("OIBC_UM", "1") == "1"            # 기상청 UM 국지(LDAPS)
@@ -189,6 +190,11 @@ def load_ext(mode: str = "mean") -> pd.DataFrame | None:
         f["ts"] = f.ts.dt.tz_convert(TZ).astype(f"datetime64[ns, {TZ}]")
         out = out.join(f.set_index("ts")[["um_ghi", "um_dir", "um_dif"]].add_prefix("ext_"), how="outer")
         ghi_cols.append("ext_um_ghi")
+        pts = os.path.join(root, "kma_um_points.parquet")
+        if USE_UMPTS and os.path.exists(pts):                   # 고정 5지점 값을 열로 (운영진 허용: 좌표로 고르지 않음)
+            f = pd.read_parquet(pts)
+            f["ts"] = f.ts.dt.tz_convert(TZ).astype(f"datetime64[ns, {TZ}]")
+            out = out.join(f.set_index("ts").add_prefix("ext_"), how="outer")
     # 앙상블 평균 일사: 'all' = 그 시점에 있는 모든 소스 평균 (소스 구성이 시기마다 바뀜 → 뜻이 변함)
     #                  'stable' = 학습·평가 전 기간에 항상 있는 소스만 (GFS 원본, 쓰는 경우 LDAPS)
     ens_cols = [c for c in ghi_cols if c.endswith("_ghi")]
