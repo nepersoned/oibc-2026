@@ -23,6 +23,7 @@ def main():
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--ledger", required=True)
     ap.add_argument("--out", required=True, help="partial parquet path, never gfs_hourly.parquet")
+    ap.add_argument("--repair-dir", help="separate metadata-verified repaired caches")
     args=ap.parse_args()
     ledger=json.loads(Path(args.ledger).read_text(encoding="utf-8"))
     if ledger["completed"] != ledger["total"]:
@@ -33,8 +34,19 @@ def main():
     raw=Path(g.RAW).resolve()
     days=pd.date_range(ledger["start"],ledger["end"],freq="D")
     failures=ledger["failed"]
-    good=[d.strftime("%Y%m%d") for d in days if d.strftime("%Y%m%d") not in failures]
-    if not good:
+    sources={}
+    repaired=[]
+    for d in days:
+        key=d.strftime("%Y%m%d")
+        source=raw/(key+".npz")
+        if key in failures:
+            source=Path(args.repair_dir).resolve()/(key+".npz") if args.repair_dir else None
+            if source is None or not source.exists():
+                continue
+            repaired.append(key)
+        inspect_rows(source)
+        sources[key]=source
+    if not sources:
         raise ValueError("no valid dates")
     stage=raw.parent / ("gfs_checked_stage_"+uuid.uuid4().hex)
     if stage.parent.resolve()!=raw.parent:
@@ -43,9 +55,7 @@ def main():
     links=[]
     old=g.RAW
     try:
-        for key in good:
-            source=raw/(key+".npz")
-            inspect_rows(source)
+        for key, source in sources.items():
             target=stage/(key+".npz")
             os.link(source,target)
             links.append(target)
@@ -56,7 +66,7 @@ def main():
         for link in links:
             link.unlink()
         stage.rmdir()
-    if frame.ts.duplicated().any() or len(frame)!=len(good)*24:
+    if frame.ts.duplicated().any() or len(frame)!=len(sources)*24:
         raise ValueError("unexpected partial grid")
     first=pd.Timestamp(ledger["start"],tz=g.TZ)+pd.Timedelta(days=1,hours=1)
     last=pd.Timestamp(ledger["end"],tz=g.TZ)+pd.Timedelta(days=2)
@@ -65,7 +75,9 @@ def main():
     frame.to_parquet(output,index=False)
     coverage=frame.groupby(frame.ts.dt.year).agg(rows=("ts","size"),ghi=("gfs_ghi",lambda x:float(x.notna().mean())),
                                                    tcc=("gfs_tcc",lambda x:float(x.notna().mean())))
-    print(f"Partial only; valid init days={len(good)}, failed={len(failures)}; no release-time guarantee")
+    print(f"Partial only; valid init days={len(sources)}, originally failed={len(failures)}, "
+          f"repaired={len(repaired)}; no release-time guarantee")
+    print(f"Repaired init dates: {','.join(repaired)}")
     print(coverage.to_string())
     print(f"Saved {output}")
 
