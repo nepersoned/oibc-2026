@@ -141,3 +141,7 @@ seed 7/21/42의 동일 설정 예측을 재평가한 결과 SC1(site_code 제거
 ### SM#39 대회 예보 그룹 예측과 noext 사이트 예측 통합
 
 `forecast_wa`/`forecast_wb`만으로 학습한 그룹 CF 모델을 reference 구성의 사이트 예측과 재배분 결합했다. 2023~24에서 선택한 alpha=0.2를 고정 적용해 2024~25 W가 201,164,873→198,736,384원(-1.207%)이었다. 2024 7일 paired bootstrap 95% [-4,299,695,-445,862]원. 단, 2023 학습의 G2 그룹 타깃은 `min_cov=0.3`을 통과하지 못해 G2 외삽이며, 반복 사용된 검증기간 결과라 공식 제출 성능으로 확정하지 않는다. 상세 설정·월별 W·누수 및 고정용량 진단은 `GROUP_NOEXT_INTEGRATION_SM39.md` 참조.
+
+### SM#40 Noext group–site 제출 후보 생성
+
+SM#39 alpha=0.2를 고정해 사이트 rich LightGBM(site_code 제거, 2년)과 대회 제공 forecast_wa/wb 그룹 CF 모델을 제출기간 전체에 재학습·추론했다. 기준 구성 G1/G2 용량은 20,465.655/22,189.715kW, 두 그룹 학습 타깃은 17,544/11,649행이었다. alpha 재분배 합계 검증 및 제출 validator는 통과(exit 0); 후보 CSV는 생성했으나 실제 평가 정답이 없어 제출기간 W는 미산출이며 포털 미업로드다. 학습 CF 관측용량과 추론 고정용량 분모 차이를 기록했다. 상세 SHA256 및 GFS 테스트 감사는 `NOEXT_ENSEMBLE_SUBMISSION_SM40.md` 참조.
