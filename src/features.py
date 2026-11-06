@@ -94,8 +94,10 @@ def prep_forecast(f: pd.DataFrame, prov: str, cols: list[str]) -> pd.DataFrame:
     idx = r17.index.union(r10.index)
     r17, r10 = r17.reindex(idx), r10.reindex(idx)
     d = r17.fillna(r10)
-    for c in R10[prov]:
+    r10_cols = list(cols) if RICH2 else R10[prov]              # RICH2: 모든 변수의 r10 열
+    for c in r10_cols:
         d[f"{c}_r10"] = r10[c]
+    for c in R10[prov]:
         d[f"{c}_d10"] = r17[c] - r10[c]
     d = d.reset_index().sort_values([st, "ts"])
     d["tday"] = target_day(d.ts)
@@ -109,6 +111,10 @@ def prep_forecast(f: pd.DataFrame, prov: str, cols: list[str]) -> pd.DataFrame:
         d[f"{c}_dmean"] = gc.transform("mean")
         day = d[c].where(hr.between(9, 16))
         d[f"{c}_daymean"] = day.groupby([d[st], d.tday]).transform("mean")
+        if RICH2:                                                 # 전날 대상일의 주간 평균 (전날 발행분 → 허용)
+            dm = d[[st, "tday", f"{c}_daymean"]].drop_duplicates([st, "tday"]).copy()
+            dm["tday"] = dm.tday + pd.Timedelta(days=1)
+            d[f"{c}_daymean_prev"] = d[[st, "tday"]].merge(dm, on=[st, "tday"], how="left")[f"{c}_daymean"].to_numpy()
     num = d.columns.difference([st, "ts", "tday"])
     d[num] = d[num].astype("float32")
     return d.drop(columns="tday")
@@ -126,6 +132,7 @@ EXT_MODELS = ["ecmwf_ifs025", "jma_seamless", "gfs_seamless"]
 EXT_MODELS_2024 = ["icon_seamless", "gem_seamless", "meteofrance_seamless", "cma_grapes_global", "bom_access_global"]
 USE_2024 = os.environ.get("OIBC_EXT2024", "0") == "1"      # 실험 스위치
 CALENDAR = os.environ.get("OIBC_CAL", "1") == "1"         # 요일·공휴일 특징
+RICH2 = os.environ.get("OIBC_RICH2", "0") == "1"           # r10 전체 열 + 전날 일평균 + vsfleet
 USE_GFS = os.environ.get("OIBC_GFS", "1") == "1"          # NOAA GFS 원본 상자 평균
 USE_GFS2 = os.environ.get("OIBC_GFS2", "0") == "1"         # GFS 확장 통계
 USE_GFSPTS = os.environ.get("OIBC_GFSPTS", "0") == "1"     # GFS 20격자점 일사 열
@@ -262,6 +269,10 @@ def build_rich(base: pd.DataFrame, sites: pd.DataFrame, fa: pd.DataFrame, fb: pd
     if wx is not None:
         d = d.merge(wx[0], on=["wa_station", "ts"], how="left")
         d = d.merge(wx[1], on=["wb_station", "ts"], how="left")
+    if RICH2:                                                     # 발전소 지점 − 전국 평균 (국지 vs 광역 차이)
+        for c in REGION:
+            if c in d.columns and f"reg_{c}" in d.columns:
+                d[f"vs_{c}"] = (d[c] - d[f"reg_{c}"]).astype("float32")
     ts = pd.DatetimeIndex(d.ts)
     d["elev"], d["azim"], d["cosz"] = solar(ts, d.lat.to_numpy(), d.lon.to_numpy())
     cz = np.clip(d.cosz.to_numpy(), 1e-3, None)

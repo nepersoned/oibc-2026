@@ -27,10 +27,28 @@ def fit(d: pd.DataFrame, weight: str = "none", feats: list[str] | None = None,
         if weight == "smpk":
             w = w * d.smp.fillna(d.smp.median()).clip(lower=0).to_numpy()
         w = w / w.mean()
-    m = lgb.LGBMRegressor(**{**PARAMS, **(params or {})})
-    m.fit(d[feats], y, sample_weight=w, categorical_feature=cat or "auto")
-    m.feats_ = feats
-    return m
+    params = dict(params or {})
+    seeds = int(params.pop("seeds", 1))                       # 시드 평균
+    models = []
+    for s_ in range(seeds):
+        m = lgb.LGBMRegressor(**{**PARAMS, **params, "random_state": 42 + s_})
+        m.fit(d[feats], y, sample_weight=w, categorical_feature=cat or "auto")
+        models.append(m)
+    if seeds == 1:
+        models[0].feats_ = feats
+        return models[0]
+    ens = _SeedEnsemble(models)
+    ens.feats_ = feats
+    return ens
+
+
+class _SeedEnsemble:
+    def __init__(self, models):
+        self.models = models
+        self.booster_ = models[0].booster_
+
+    def predict(self, X):
+        return np.mean([m.predict(X) for m in self.models], axis=0)
 
 
 def predict(model, d: pd.DataFrame) -> np.ndarray:
