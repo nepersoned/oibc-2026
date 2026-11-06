@@ -49,11 +49,16 @@ def attach_gfs(base, raw):
     return out
 
 
-def main():
-    ap=argparse.ArgumentParser(description=__doc__)
+def parse_args(argv=None):
+    # --mode belongs to the underlying pipeline and must not abbreviate --model.
+    ap=argparse.ArgumentParser(description=__doc__,allow_abbrev=False)
     ap.add_argument("--gfs-partial",required=True)
     ap.add_argument("--model",choices=["site","group"],required=True)
-    a,rest=ap.parse_known_args()
+    return ap.parse_known_args(argv)
+
+
+def main():
+    a,rest=parse_args()
     if "--mode" not in rest or rest[rest.index("--mode")+1]!="val":
         raise ValueError("research validation only")
     if F.USE_GEFS or F.USE_UM or F.USE_2024 or F.ENS_MODE!="all":

@@ -13,6 +13,11 @@ import partial_gfs_runner as runner
 
 
 class PartialGFSFeatureTests(unittest.TestCase):
+    def test_pipeline_mode_is_not_consumed_as_model(self):
+        a,rest=runner.parse_args(["--model","group","--gfs-partial","x.parquet","--mode","val"])
+        self.assertEqual(a.model,"group")
+        self.assertEqual(rest,["--mode","val"])
+
     def test_matches_original_feature_loader_when_same_data(self):
         ts=pd.date_range("2024-06-01 11:00",periods=3,freq="h",tz="Asia/Seoul")
         wx=pd.DataFrame({"ts":ts,"pt":[0,0,0],"shortwave_radiation":[1.,2.,3.],"cloud_cover":[4.,5.,6.]})
