@@ -213,37 +213,46 @@ def main() -> None:
 
     if a.mode == "val":
         pa, pb = sc.window(a.val_start, a.val_end)
-        gen = load_gen(pa - pd.DateOffset(years=a.train_years), pb)
+        # Do not load evaluation-period generation into the fitting path.
+        gen = load_gen(pa - pd.DateOffset(years=a.train_years), pa - pd.Timedelta(hours=1))
         tr = targets(gen[gen.ts < pa], sites, comp, a.min_cov)
         act = load_gen(pa, pb)
         act_t = targets(act, sites, comp, min_cov=0.0)            # 보고 중 발전소 기준 실적
-        idx = act_t[["group", "ts"]]
+        # Generate a complete, outcome-independent group × timestamp grid.
+        idx = pd.MultiIndex.from_product(
+            [list(sc.GROUPS), pd.date_range(pa, pb, freq="h").astype(f"datetime64[ns, {sc.TZ}]")],
+            names=["group", "ts"],
+        ).to_frame(index=False)
         p = fit_predict(tr, idx, gw_tr, wd_tr, gw_tr, wd_tr, sites, comp, params)
         if p.duplicated(["group", "ts"]).any() or p.cf_hat.isna().any() or not np.isfinite(p.cf_hat).all():
             raise ValueError("invalid group predictions")
-        p = p.merge(act_t[["group", "ts", "cap_avail"]], on=["group", "ts"], validate="one_to_one")
-        p["pred"] = p.cf_hat * p.cap_avail  # post-hoc local diagnostic only
-        W_agg = group_score(p[["group", "ts", "pred"]], act_t, smp)
-        print(f"\n[집합 모델] W {W_agg:,.0f}")
-        if a.diagnostic_out:
-            p.to_parquet(a.diagnostic_out, index=False)
+        total = sites.assign(group=sites.site_id.map(comp)).groupby("group").capacity_kw.sum()
+        p["pred"] = p.cf_hat * p.group.map(total)  # fixed reference-composition capacity; submission-estimable
         if a.out:
-            total = sites.assign(group=sites.site_id.map(comp)).groupby("group").capacity_kw.sum()
-            submit = p[["group", "ts", "cf_hat"]].copy()
-            submit["pred"] = submit.cf_hat * submit.group.map(total)
-            submit.to_parquet(a.out, index=False)
+            p.to_parquet(a.out, index=False)
+        if a.diagnostic_out:
+            # Post-hoc diagnostic only: evaluation-period observed capacity is not used above.
+            diagnostic = p[["group", "ts", "cf_hat"]].merge(
+                act_t[["group", "ts", "cap_avail"]], on=["group", "ts"], how="inner", validate="one_to_one")
+            diagnostic["pred"] = diagnostic.cf_hat * diagnostic.cap_avail
+            W_agg = group_score(diagnostic[["group", "ts", "pred"]], act_t, smp)
+            print(f"\n[사후 관측용량 진단 W — 제출 추론 아님] {W_agg:,.0f}")
+            diagnostic.to_parquet(a.diagnostic_out, index=False)
         if a.bu:
             bu = pd.read_parquet(a.bu)
             bu["ts"] = sc.to_ts(bu.ts)
-            bu = act[["site_id", "ts"]].merge(bu, on=["site_id", "ts"], how="left")
+            bu = pd.MultiIndex.from_product(
+                [sites.site_id, pd.date_range(pa, pb, freq="h").astype(f"datetime64[ns, {sc.TZ}]")],
+                names=["site_id", "ts"],
+            ).to_frame(index=False).merge(bu, on=["site_id", "ts"], how="left", validate="one_to_one")
+            if bu.kwh.isna().any() or not np.isfinite(bu.kwh.to_numpy()).all():
+                raise ValueError("site prediction missing or non-finite on complete grid")
             bu["group"] = bu.site_id.map(comp)
             bg = bu.groupby(["group", "ts"], as_index=False).kwh.sum().rename(columns={"kwh": "bu"})
             j = p.merge(bg, on=["group", "ts"], how="left", validate="one_to_one")
-            if j.bu.isna().any() or not np.isfinite(j.bu).all():
-                raise ValueError("site prediction missing or non-finite on scored group rows")
             W_bu = group_score(j[["group", "ts"]].assign(pred=j.bu), act_t, smp)
             print(f"[발전소 모델] W {W_bu:,.0f}")
-            for alpha in (0.0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0):
+            for alpha in (0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0):
                 Wm = group_score(j[["group", "ts"]].assign(pred=alpha * j.pred + (1 - alpha) * j.bu), act_t, smp)
                 print(f"  혼합 집합 {alpha:.1f} : W {Wm:,.0f}  (발전소 모델 대비 {(Wm / W_bu - 1) * 100:+.2f}%)")
         return
