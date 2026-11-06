@@ -130,6 +130,7 @@ USE_GFS = os.environ.get("OIBC_GFS", "1") == "1"          # NOAA GFS 원본 상�
 USE_GEFS = os.environ.get("OIBC_GEFS", "1") == "1"        # NOAA GEFS 평균·퍼짐
 USE_UM = os.environ.get("OIBC_UM", "1") == "1"            # 기상청 UM 국지(LDAPS)
 ENS_MODE = os.environ.get("OIBC_ENS", "all")               # ext_ghi_ens 계산 방식: all | stable
+SPATIAL_MODE = os.environ.get("OIBC_SPATIAL", "none")     # none | a1 | a2
 
 
 def load_ext(mode: str = "mean") -> pd.DataFrame | None:
@@ -164,6 +165,10 @@ def load_ext(mode: str = "mean") -> pd.DataFrame | None:
         out = out.join(g, how="outer")
         ghi_cols += ["ext_jx_direct_radiation", "ext_jx_diffuse_radiation"]
     gfs = os.path.join(root, "gfs_hourly.parquet")
+    if not os.path.exists(gfs):
+        partial = os.path.join(root, "gfs_hourly_partial_full.parquet")
+        if os.path.exists(partial):
+            gfs = partial
     if USE_GFS and os.path.exists(gfs):                        # NOAA GFS 원본 (src/fetch_gfs.py), 상자 평균
         f = pd.read_parquet(gfs)
         f["ts"] = f.ts.dt.tz_convert(TZ).astype(f"datetime64[ns, {TZ}]")
@@ -189,6 +194,19 @@ def load_ext(mode: str = "mean") -> pd.DataFrame | None:
         ens_cols = [c for c in ("ext_gfs_ghi", "ext_um_ghi") if c in out.columns] or ens_cols
     out["ext_ghi_ens"] = out[ens_cols].mean(axis=1)
     out = out.reset_index().sort_values("ts")
+    if SPATIAL_MODE in {"a1", "a2"}:
+        spatial_path = os.path.join(root, "gfs_spatial_features_2021_2024.csv")
+        if not os.path.exists(spatial_path):
+            raise FileNotFoundError(f"spatial feature table missing: {spatial_path}")
+        spatial = pd.read_csv(spatial_path, parse_dates=["ts"])
+        spatial["ts"] = pd.to_datetime(spatial.ts, utc=True).dt.tz_convert(TZ)
+        a1 = ["sp_ghi_std", "sp_ghi_range", "sp_ghi_p10", "sp_ghi_p50", "sp_ghi_p90",
+              "sp_tcc_std", "sp_tcc_range", "sp_tcc_p10", "sp_tcc_p50", "sp_tcc_p90"]
+        a2 = ["sp_ghi_east_west", "sp_ghi_north_south", "sp_tcc_east_west", "sp_tcc_north_south",
+              "sp_ghi_change_mean", "sp_ghi_change_std", "sp_tcc_change_mean", "sp_tcc_change_std",
+              "sp_ghi_tcc_interaction", "sp_ghi_std_tcc_std_interaction"]
+        cols = a1 + (a2 if SPATIAL_MODE == "a2" else [])
+        out = out.merge(spatial[["ts"] + cols], on="ts", how="left", validate="one_to_one")
     out["tday"] = target_day(out.ts)
     for c in ghi_cols + ["ext_ghi_ens"]:
         g = out.groupby("tday")[c]
