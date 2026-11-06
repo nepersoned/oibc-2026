@@ -154,10 +154,15 @@ def fit_predict(train_t, pred_idx, gw_tr, wd_tr, gw_pr, wd_pr, sites, comp, para
         cs_tr = np.clip(dtr.ghi_cs.to_numpy() / 1000.0, 0.03, None)
         cs_pr = np.clip(dpr.ghi_cs.to_numpy() / 1000.0, 0.03, None)
         y = (y / cs_tr).clip(0, 1.5)
+    kw = params.pop("kweight", False)                    # 채점 가중: 11~15시 ×3 (SMP 는 미래값이라 제외)
     sw = None
     if halflife:
         age = (dtr.ts.max() - dtr.ts).dt.total_seconds().to_numpy() / (365.25 * 86400)
         sw = 0.5 ** (age / float(halflife))
+        sw = sw / sw.mean()
+    if kw:
+        k = np.where(dtr.ts.dt.hour.between(11, 15), 3.0, 1.0)
+        sw = k if sw is None else sw * k
         sw = sw / sw.mean()
     for s in range(seeds):
         if algo == "xgb":
