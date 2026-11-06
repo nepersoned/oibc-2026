@@ -30,15 +30,29 @@ MIN_CAP = sc.MIN_CAP
 
 
 def residuals(pred_path: str, start: str, end: str, sites: pd.DataFrame):
-    """(시각 × 발전소) 잔차 행렬 R, 가중치 w. 실적 결측은 잔차 0."""
+    """Observed-only 잔차 행렬. 미관측 기여 0은 objective 집계용이며 무오차 뜻이 아니다."""
     p = pd.read_parquet(pred_path)
     p["ts"] = sc.to_ts(p.ts)
-    a = sc.load_actual(start, end).merge(p, on=["site_id", "ts"], how="left")
+    if p.duplicated(["site_id", "ts"]).any():
+        raise ValueError("예측 site_id, ts 중복")
+    actual = sc.load_actual(start, end)
+    if actual.duplicated(["site_id", "ts"]).any():
+        raise ValueError("실적 site_id, ts 중복")
+    if not np.isfinite(p.kwh.to_numpy(dtype=float)).all():
+        raise ValueError("예측에 NaN/Inf 존재")
+    a = actual.merge(p, on=["site_id", "ts"], how="left", validate="one_to_one")
+    if a.kwh.isna().any():
+        raise ValueError(f"관측 실적 행의 예측 누락 {int(a.kwh.isna().sum())}개")
+    if not len(a):
+        raise ValueError("최적화 기간의 관측 잔차 입력이 비어 있음")
     a["r"] = a.kwh - a.energy
-    M = a.pivot_table(index="ts", columns="site_id", values="r", aggfunc="sum")
-    M = M.reindex(columns=sites.site_id).fillna(0.0)
-    M = M[(M != 0).any(axis=1)]
+    M = a.pivot(index="ts", columns="site_id", values="r")
+    M = M.reindex(columns=sites.site_id).fillna(0.0)  # observed-only 목적함수의 미관측 기여
+    if M.empty:
+        raise ValueError("최적화 기간의 잔차 행렬이 비어 있음")
     w = 0.1 * M.index.to_series().map(sc.load_smp()).to_numpy() * sc.k_weight(M.index.to_series())
+    if not np.isfinite(w).all() or (w < 0).any():
+        raise ValueError("SMP 누락/비유효 값 또는 음수 가중치")
     return M.to_numpy(np.float64), w.astype(np.float64)
 
 
@@ -53,8 +67,12 @@ def feasible(x: np.ndarray, cap: np.ndarray) -> bool:
     return c1 >= MIN_CAP and cap.sum() - c1 >= MIN_CAP
 
 
-def local_search(x: np.ndarray, R: np.ndarray, w: np.ndarray, cap: np.ndarray, max_rounds: int = 50):
+def local_search(x: np.ndarray, R: np.ndarray, w: np.ndarray, cap: np.ndarray, max_rounds: int = 50,
+                 movable_mask: np.ndarray | None = None):
     x = x.astype(np.float64).copy()
+    movable = np.ones(len(x), dtype=bool) if movable_mask is None else np.asarray(movable_mask, dtype=bool)
+    if movable.shape != x.shape:
+        raise ValueError("movable_mask 길이가 구성과 다름")
     tot = R.sum(1)
     e1 = R @ x
     best = float((w * (np.abs(e1) + np.abs(tot - e1))).sum())
@@ -66,7 +84,7 @@ def local_search(x: np.ndarray, R: np.ndarray, w: np.ndarray, cap: np.ndarray, m
         E1 = e1[:, None] + R * sign[None, :]
         cand = (w[:, None] * (np.abs(E1) + np.abs(tot[:, None] - E1))).sum(0)
         c1 = cap @ x + cap * sign
-        cand[(c1 < MIN_CAP) | (total_cap - c1 < MIN_CAP)] = np.inf
+        cand[(c1 < MIN_CAP) | (total_cap - c1 < MIN_CAP) | ~movable] = np.inf
         j = int(np.argmin(cand))
         if cand[j] < best - 1e-6:
             x[j] = 1 - x[j]
@@ -75,7 +93,7 @@ def local_search(x: np.ndarray, R: np.ndarray, w: np.ndarray, cap: np.ndarray, m
             improved = True
             continue
         # 2) 교환: G1 하나 ↔ G2 하나 (최선 이동 후보 상위끼리만)
-        g1, g2 = np.where(x == 1)[0], np.where(x == 0)[0]
+        g1, g2 = np.where((x == 1) & movable)[0], np.where((x == 0) & movable)[0]
         top1 = g1[np.argsort(cand[g1])[:40]]
         top2 = g2[np.argsort(cand[g2])[:40]]
         for i in top1:
