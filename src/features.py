@@ -138,6 +138,7 @@ USE_GFS2 = os.environ.get("OIBC_GFS2", "0") == "1"         # GFS 확장 통계
 USE_GFSPTS = os.environ.get("OIBC_GFSPTS", "0") == "1"     # GFS 20격자점 일사 열
 GFSPTS_TCC = os.environ.get("OIBC_GFSPTS_TCC", "0") == "1" # + 20격자점 운량 열
 USE_UMX = os.environ.get("OIBC_UMX", "0") == "1"           # 기상청 UM 지역·전구 지점 평균
+USE_ECM = os.environ.get("OIBC_ECM", "0") == "1"           # ECMWF ENS D-2 상자 평균·퍼짐
 USE_UMPTS = os.environ.get("OIBC_UMPTS", "0") == "1"       # LDAPS 고정 5지점 값을 별도 열로
 USE_OPENMETEO = os.environ.get("OIBC_OPENMETEO", "0") == "1"  # Open-Meteo: 운영진 답변으로 사용 불가 → 기본 꺼짐
 USE_GEFS = os.environ.get("OIBC_GEFS", "1") == "1"        # NOAA GEFS 평균·퍼짐
@@ -203,6 +204,13 @@ def load_ext(mode: str = "mean") -> pd.DataFrame | None:
             cols = [c for c in f.columns if c != "ts"]
             out = out.join(f.set_index("ts")[cols].add_prefix("ext_"), how="outer")
             ghi_cols.append(f"ext_{pre}_ghi")
+    ecm = os.path.join(root, "ecmwf_ens_hourly.parquet")
+    if USE_ECM and os.path.exists(ecm):                        # ECMWF ENS (dynamical.org, CC BY 4.0) — D-2 00z 창만 (공개 근거 확실)
+        f = pd.read_parquet(ecm)
+        f["ts"] = f.ts.dt.tz_convert(TZ).astype(f"datetime64[ns, {TZ}]")
+        cols = [c for c in f.columns if c.startswith("ecm_d2_")]
+        out = out.join(f.set_index("ts")[cols].add_prefix("ext_"), how="outer")
+        ghi_cols.append("ext_ecm_d2_sw_mean")
     gpts = os.path.join(root, "gfs_pts_hourly.parquet")
     if USE_GFSPTS and os.path.exists(gpts):                    # GFS 고정 20격자점 열 (src/fetch_gfs_pts.py, 운영진 허용)
         f = pd.read_parquet(gpts)
