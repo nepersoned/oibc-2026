@@ -136,6 +136,8 @@ RICH2 = os.environ.get("OIBC_RICH2", "0") == "1"           # r10 전체 열 + �
 USE_GFS = os.environ.get("OIBC_GFS", "1") == "1"          # NOAA GFS 원본 상자 평균
 USE_GFS2 = os.environ.get("OIBC_GFS2", "0") == "1"         # GFS 확장 통계
 USE_GFSPTS = os.environ.get("OIBC_GFSPTS", "0") == "1"     # GFS 20격자점 일사 열
+GFSPTS_TCC = os.environ.get("OIBC_GFSPTS_TCC", "0") == "1" # + 20격자점 운량 열
+USE_UMX = os.environ.get("OIBC_UMX", "0") == "1"           # 기상청 UM 지역·전구 지점 평균
 USE_UMPTS = os.environ.get("OIBC_UMPTS", "0") == "1"       # LDAPS 고정 5지점 값을 별도 열로
 USE_OPENMETEO = os.environ.get("OIBC_OPENMETEO", "0") == "1"  # Open-Meteo: 운영진 답변으로 사용 불가 → 기본 꺼짐
 USE_GEFS = os.environ.get("OIBC_GEFS", "1") == "1"        # NOAA GEFS 평균·퍼짐
@@ -193,11 +195,19 @@ def load_ext(mode: str = "mean") -> pd.DataFrame | None:
         cols = [c for c in f.columns if c != "ts" and not c.startswith("gfs2_dswrf_in") or c == "gfs2_dswrf_insd"]
         cols = [c for c in cols if c != "gfs2_dswrf_in"]       # 안쪽 평균 일사는 ext_gfs_ghi 와 중복 → 제외
         out = out.join(f.set_index("ts")[cols].add_prefix("ext_"), how="outer")
+    for grp, pre in (("kma_umrg", "umrg"), ("kma_umgl", "umgl")):     # 기상청 UM 지역(12km)·전구 (src/fetch_kma.py --group)
+        f_path = os.path.join(root, f"{grp}_hourly.parquet")
+        if USE_UMX and os.path.exists(f_path):
+            f = pd.read_parquet(f_path)
+            f["ts"] = f.ts.dt.tz_convert(TZ).astype(f"datetime64[ns, {TZ}]")
+            cols = [c for c in f.columns if c != "ts"]
+            out = out.join(f.set_index("ts")[cols].add_prefix("ext_"), how="outer")
+            ghi_cols.append(f"ext_{pre}_ghi")
     gpts = os.path.join(root, "gfs_pts_hourly.parquet")
     if USE_GFSPTS and os.path.exists(gpts):                    # GFS 고정 20격자점 열 (src/fetch_gfs_pts.py, 운영진 허용)
         f = pd.read_parquet(gpts)
         f["ts"] = f.ts.dt.tz_convert(TZ).astype(f"datetime64[ns, {TZ}]")
-        cols = [c for c in f.columns if c.startswith("gfsp_dswrf_")]   # 일사만 (운량은 평균으로 충분)
+        cols = [c for c in f.columns if c.startswith("gfsp_dswrf_") or (GFSPTS_TCC and c.startswith("gfsp_tcdc_"))]
         out = out.join(f.set_index("ts")[cols].add_prefix("ext_"), how="outer")
     gefs = os.path.join(root, "gefs_hourly.parquet")
     if USE_GEFS and os.path.exists(gefs):                      # NOAA GEFS 평균 + 퍼짐 (src/fetch_gefs.py)
