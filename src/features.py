@@ -132,6 +132,7 @@ USE_UM = os.environ.get("OIBC_UM", "1") == "1"            # 기상청 UM 국지(
 ENS_MODE = os.environ.get("OIBC_ENS", "all")               # ext_ghi_ens 계산 방식: all | stable
 SPATIAL_MODE = os.environ.get("OIBC_SPATIAL", "none")     # none | a1 | a2
 PHYSICS_MODE = os.environ.get("OIBC_PHYSICS", "none")     # none | b1
+EXT_SOURCES = os.environ.get("OIBC_EXT_SOURCES", "legacy")  # legacy | no_openmeteo
 
 
 def load_ext(mode: str = "mean") -> pd.DataFrame | None:
@@ -142,10 +143,17 @@ def load_ext(mode: str = "mean") -> pd.DataFrame | None:
     """
     if mode == "none":
         return None
+    if EXT_SOURCES not in {"legacy", "no_openmeteo"}:
+        raise ValueError(f"unsupported OIBC_EXT_SOURCES={EXT_SOURCES}")
     root = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data_ext")
     out = None
     ghi_cols = []
-    for m in EXT_MODELS + (EXT_MODELS_2024 if USE_2024 else []):
+    def add_source(frame: pd.DataFrame) -> None:
+        nonlocal out
+        out = frame if out is None else out.join(frame, how="outer")
+
+    openmeteo_models = EXT_MODELS + (EXT_MODELS_2024 if USE_2024 else [])
+    for m in (() if EXT_SOURCES == "no_openmeteo" else openmeteo_models):
         path = os.path.join(root, f"openmeteo_{m}.parquet")
         if not os.path.exists(path):
             continue
@@ -154,16 +162,14 @@ def load_ext(mode: str = "mean") -> pd.DataFrame | None:
         g = f.groupby("ts").agg(**{f"ext_{m}_ghi": ("shortwave_radiation", "mean"),
                                    f"ext_{m}_cc": ("cloud_cover", "mean")})
         ghi_cols.append(f"ext_{m}_ghi")
-        out = g if out is None else out.join(g, how="outer")
-    if out is None:
-        return None
+        add_source(g)
     extra = os.path.join(root, "openmeteo_jma_extra.parquet")
-    if os.path.exists(extra):                                   # 구름 층별·직달/산란 일사·강수·기온 (격자 평균)
+    if EXT_SOURCES == "legacy" and os.path.exists(extra):       # Open-Meteo JMA 추가변수
         f = pd.read_parquet(extra)
         f["ts"] = f.ts.dt.tz_convert(TZ).astype(f"datetime64[ns, {TZ}]")
         cols = [c for c in f.columns if c not in {"ts", "pt"}]
         g = f.groupby("ts")[cols].mean().add_prefix("ext_jx_")
-        out = out.join(g, how="outer")
+        add_source(g)
         ghi_cols += ["ext_jx_direct_radiation", "ext_jx_diffuse_radiation"]
     gfs = os.path.join(root, "gfs_hourly.parquet")
     if not os.path.exists(gfs):
@@ -173,23 +179,25 @@ def load_ext(mode: str = "mean") -> pd.DataFrame | None:
     if USE_GFS and os.path.exists(gfs):                        # NOAA GFS 원본 (src/fetch_gfs.py), 상자 평균
         f = pd.read_parquet(gfs)
         f["ts"] = f.ts.dt.tz_convert(TZ).astype(f"datetime64[ns, {TZ}]")
-        out = out.join(f.set_index("ts")[["gfs_ghi", "gfs_kcs", "gfs_tcc"]].add_prefix("ext_"), how="outer")
+        add_source(f.set_index("ts")[["gfs_ghi", "gfs_kcs", "gfs_tcc"]].add_prefix("ext_"))
         ghi_cols.append("ext_gfs_ghi")
     gefs = os.path.join(root, "gefs_hourly.parquet")
     if USE_GEFS and os.path.exists(gefs):                      # NOAA GEFS 평균 + 퍼짐 (src/fetch_gefs.py)
         f = pd.read_parquet(gefs)
         f["ts"] = f.ts.dt.tz_convert(TZ).astype(f"datetime64[ns, {TZ}]")
         cols = ["gefs_ghi", "gefs_kcs", "gefs_tcc", "gefs_ghi_spr", "gefs_tcc_spr", "gefs_kcs_spr"]
-        out = out.join(f.set_index("ts")[cols].add_prefix("ext_"), how="outer")
+        add_source(f.set_index("ts")[cols].add_prefix("ext_"))
         ghi_cols.append("ext_gefs_ghi")
     um = os.path.join(root, "kma_um_hourly.parquet")
     if USE_UM and os.path.exists(um):                          # 기상청 UM 국지(LDAPS) D-1 00z (src/fetch_kma.py)
         f = pd.read_parquet(um)
         f["ts"] = f.ts.dt.tz_convert(TZ).astype(f"datetime64[ns, {TZ}]")
-        out = out.join(f.set_index("ts")[["um_ghi", "um_dir", "um_dif"]].add_prefix("ext_"), how="outer")
+        add_source(f.set_index("ts")[["um_ghi", "um_dir", "um_dif"]].add_prefix("ext_"))
         ghi_cols.append("ext_um_ghi")
     # 앙상블 평균 일사: 'all' = 그 시점에 있는 모든 소스 평균 (소스 구성이 시기마다 바뀜 → 뜻이 변함)
     #                  'stable' = 학습·평가 전 기간에 항상 있는 소스만 (GFS 원본, 쓰는 경우 LDAPS)
+    if out is None:
+        raise FileNotFoundError("no external weather source available")
     ens_cols = [c for c in ghi_cols if c.endswith("_ghi")]
     if ENS_MODE == "stable":
         ens_cols = [c for c in ("ext_gfs_ghi", "ext_um_ghi") if c in out.columns] or ens_cols
