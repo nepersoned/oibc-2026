@@ -17,6 +17,7 @@ def main():
     ap=argparse.ArgumentParser(description=__doc__)
     for name in ("site-model","group-model","start","end","out"):
         ap.add_argument("--"+name,required=True)
+    ap.add_argument("--out-table",help="optional local-only observed group table for diagnostics")
     a=ap.parse_args()
     sites=sc.load_sites();comp=sc.reference_composition(sites);actual=sc.load_actual(a.start,a.end)
     site=pd.read_parquet(a.site_model)
@@ -33,6 +34,11 @@ def main():
          "warning":"in-sample fit; evaluate only on a later time period"}
     with Path(a.out).open("x",encoding="utf-8") as f:
         json.dump(out,f,indent=2)
+    if a.out_table:
+        target=Path(a.out_table)
+        if target.exists():
+            raise FileExistsError(target)
+        table.to_parquet(target,index=False)
     print(f"Earlier OOF fitted group weight: {alpha:.6f}")
 
 
