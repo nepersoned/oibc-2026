@@ -131,6 +131,7 @@ USE_GEFS = os.environ.get("OIBC_GEFS", "1") == "1"        # NOAA GEFS 평균·�
 USE_UM = os.environ.get("OIBC_UM", "1") == "1"            # 기상청 UM 국지(LDAPS)
 ENS_MODE = os.environ.get("OIBC_ENS", "all")               # ext_ghi_ens 계산 방식: all | stable
 SPATIAL_MODE = os.environ.get("OIBC_SPATIAL", "none")     # none | a1 | a2
+PHYSICS_MODE = os.environ.get("OIBC_PHYSICS", "none")     # none | b1
 
 
 def load_ext(mode: str = "mean") -> pd.DataFrame | None:
@@ -256,6 +257,15 @@ def build_rich(base: pd.DataFrame, sites: pd.DataFrame, fa: pd.DataFrame, fb: pd
     d["elev"], d["azim"], d["cosz"] = solar(ts, d.lat.to_numpy(), d.lon.to_numpy())
     cz = np.clip(d.cosz.to_numpy(), 1e-3, None)
     d["ghi_cs"] = np.where(d.cosz > 0, 1098 * cz * np.exp(-0.057 / cz), 0).astype("float32")  # Haurwitz
+    if PHYSICS_MODE == "b1" and "ext_gfs_ghi" in d:
+        # B1: retain both source columns and expose their ratio.  Low-sun hours
+        # are missing because the ratio has no useful physical interpretation.
+        den = d["ghi_cs"].to_numpy(dtype="float64")
+        num = d["ext_gfs_ghi"].to_numpy(dtype="float64")
+        # Retain values above 1; forecast bias or cloud enhancement is not
+        # clipped by assumption.
+        ratio = np.divide(num, den, out=np.full(len(d), np.nan), where=den > 5.0)
+        d["phys_gfs_ghi_cs_ratio"] = ratio.astype("float32")
     doy = ts.day_of_year.to_numpy()
     d["doy_sin"] = np.sin(2 * np.pi * doy / 365.25).astype("float32")
     d["doy_cos"] = np.cos(2 * np.pi * doy / 365.25).astype("float32")
