@@ -82,7 +82,7 @@ uv pip install --python .venv/Scripts/python.exe -r requirements.txt
 | [`src/validate_submission.py`](src/validate_submission.py) | 공식 제출 형식 검사기 |
 | `src/analyze_*.py`, `src/inspect_data.py` | 오라클·잔차·시차 분석 (집계값만 출력) |
 
-> 📒 **전체 실험 로그: [EXPERIMENTS.md](EXPERIMENTS.md)** (`JH#1` ~ `JH#35`, 실험별 점수·판정) · 제출 기록: [SUBMISSIONS.md](SUBMISSIONS.md)
+> 📒 **전체 실험 로그: [EXPERIMENTS.md](EXPERIMENTS.md)** (`JH#1` ~ `JH#35`, 실험별 점수·판정) · 제출 기록: [SUBMISSIONS.md](SUBMISSIONS.md) · **다음 아이디어·선행연구: [IDEAS.md](IDEAS.md)**
 
 ### 실험 요약 (페널티 W — 작을수록 좋음, 베이스라인 대비)
 
@@ -102,6 +102,8 @@ uv pip install --python .venv/Scripts/python.exe -r requirements.txt
 **검증 방식**: 로컬 채점기(`src/scoring.py`)로 두 해(2024~25, 2023~24)를 모두 확인하고, 앙상블 비율은 반년 교차검증(`src/ensemble_select.py`), 구성은 해를 바꿔 교차 확인한 것만 채택.
 
 ### 다음 할 일
+
+> 우선순위와 근거는 [IDEAS.md](IDEAS.md) 1절.
 
 - [ ] `ens_v6` (참조 구성 + 발전소 LDAPS + 50:50) — S3 미재현 원인(구성 최적화) 분리
 - [ ] 출력제어 대응 (평가연도 괴리 원인 후보) — 봄 휴일 낮 예측 감쇠 등
