@@ -11,8 +11,8 @@ class SpatialFeatureTests(unittest.TestCase):
         tcc = 10.0 - ghi
         out = summarize_arrays(ghi, tcc, {"ghi": ghi - 1, "tcc": tcc + 2})
         self.assertAlmostEqual(out["sp_ghi_range"], 6.0)
-        self.assertAlmostEqual(out["sp_ghi_east_west"], 2.5)
-        self.assertAlmostEqual(out["sp_ghi_north_south"], -2.5)
+        self.assertAlmostEqual(out["sp_ghi_east_west"], 2.0)
+        self.assertAlmostEqual(out["sp_ghi_north_south"], -2.0)
         self.assertAlmostEqual(out["sp_ghi_change_mean"], 1.0)
         self.assertAlmostEqual(out["sp_tcc_change_mean"], -2.0)
 

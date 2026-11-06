@@ -77,3 +77,7 @@
 ### SM#22 Research A 공간 피처 구현 상태
 
 `src/spatial_features.py`에 기존 NOAA GFS 고정 격자(34~38°N, 126~129°E)의 DSWRF/TCDC 공간 분포·방향·시간 변화 요약을 구현했다. 현재 로컬에는 시간별 상자 평균과 단일 GRIB 표본만 있어 전체 기간의 A0/A1/A2 W 비교는 실행하지 않았으며, 평균값에서 공간 분포를 추정하지 않는다. 세부 제약과 재현 명령은 `SEONGMIN_EXPERIMENTS.md` SM#22에 기록했다.
+
+### SM#23 Research A NOAA 공간 표본 연결
+
+2024-05-31 표본 GRIB을 별도 입력으로 연결하려 했으나 승인 Python에서 ecCodes 네이티브 모듈이 없어 디코딩이 차단됐다. 메타데이터·스캔 방향까지 읽는 API는 준비했지만 실제 격자 피처와 A0/A1/A2 W는 미산출이다. 상세 원인과 다음 실행 조건은 `SEONGMIN_EXPERIMENTS.md` SM#23에 기록했다.
