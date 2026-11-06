@@ -127,6 +127,7 @@ EXT_MODELS_2024 = ["icon_seamless", "gem_seamless", "meteofrance_seamless", "cma
 USE_2024 = os.environ.get("OIBC_EXT2024", "0") == "1"      # 실험 스위치
 CALENDAR = os.environ.get("OIBC_CAL", "1") == "1"         # 요일·공휴일 특징
 USE_GFS = os.environ.get("OIBC_GFS", "1") == "1"          # NOAA GFS 원본 상자 평균
+USE_OPENMETEO = os.environ.get("OIBC_OPENMETEO", "0") == "1"  # Open-Meteo: 운영진 답변으로 사용 불가 → 기본 꺼짐
 USE_GEFS = os.environ.get("OIBC_GEFS", "1") == "1"        # NOAA GEFS 평균·퍼짐
 USE_UM = os.environ.get("OIBC_UM", "1") == "1"            # 기상청 UM 국지(LDAPS)
 ENS_MODE = os.environ.get("OIBC_ENS", "all")               # ext_ghi_ens 계산 방식: all | stable
@@ -141,9 +142,11 @@ def load_ext(mode: str = "mean") -> pd.DataFrame | None:
     if mode == "none":
         return None
     root = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data_ext")
-    out = None
+    out = pd.DataFrame(index=pd.DatetimeIndex([], tz=TZ, name="ts")).astype("float32")
     ghi_cols = []
-    for m in EXT_MODELS + (EXT_MODELS_2024 if USE_2024 else []):
+    # ⚠️ 운영진 답변(2026-11-05): Open-Meteo 무료 API 는 비상업 조건 → 외부 소스로 사용 불가. 기본 꺼짐.
+    om_models = (EXT_MODELS + (EXT_MODELS_2024 if USE_2024 else [])) if USE_OPENMETEO else []
+    for m in om_models:
         path = os.path.join(root, f"openmeteo_{m}.parquet")
         if not os.path.exists(path):
             continue
@@ -152,11 +155,9 @@ def load_ext(mode: str = "mean") -> pd.DataFrame | None:
         g = f.groupby("ts").agg(**{f"ext_{m}_ghi": ("shortwave_radiation", "mean"),
                                    f"ext_{m}_cc": ("cloud_cover", "mean")})
         ghi_cols.append(f"ext_{m}_ghi")
-        out = g if out is None else out.join(g, how="outer")
-    if out is None:
-        return None
+        out = out.join(g, how="outer")
     extra = os.path.join(root, "openmeteo_jma_extra.parquet")
-    if os.path.exists(extra):                                   # 구름 층별·직달/산란 일사·강수·기온 (격자 평균)
+    if USE_OPENMETEO and os.path.exists(extra):                 # 구름 층별·직달/산란 일사·강수·기온 (격자 평균)
         f = pd.read_parquet(extra)
         f["ts"] = f.ts.dt.tz_convert(TZ).astype(f"datetime64[ns, {TZ}]")
         cols = [c for c in f.columns if c not in {"ts", "pt"}]
@@ -167,6 +168,12 @@ def load_ext(mode: str = "mean") -> pd.DataFrame | None:
     if USE_GFS and os.path.exists(gfs):                        # NOAA GFS 원본 (src/fetch_gfs.py), 상자 평균
         f = pd.read_parquet(gfs)
         f["ts"] = f.ts.dt.tz_convert(TZ).astype(f"datetime64[ns, {TZ}]")
+        audit = os.path.join(root, "gfs_pubtime_audit.csv")           # 공개 시각 감사 (src/audit_gfs.py)
+        if os.path.exists(audit):                                      # 마감(D-1 17:00 KST) 전 공개 근거 없는 날은 비움
+            au = pd.read_csv(audit)
+            bad = pd.to_datetime(au.loc[~au.before_deadline.fillna(False).astype(bool), "target_day_kst"])
+            td = target_day(f.ts).dt.tz_localize(None)
+            f.loc[td.isin(set(bad)), ["gfs_ghi", "gfs_kcs", "gfs_tcc"]] = np.nan
         out = out.join(f.set_index("ts")[["gfs_ghi", "gfs_kcs", "gfs_tcc"]].add_prefix("ext_"), how="outer")
         ghi_cols.append("ext_gfs_ghi")
     gefs = os.path.join(root, "gefs_hourly.parquet")

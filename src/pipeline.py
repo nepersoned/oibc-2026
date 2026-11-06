@@ -44,6 +44,44 @@ def load_generation(a: pd.Timestamp, b: pd.Timestamp) -> pd.DataFrame:
     return g
 
 
+CLEAR_REF = os.environ.get("OIBC_CLEARREF", "0") == "1"   # 발전소별 맑은날 기준값 특징
+
+
+def _p95(src: pd.DataFrame, dst: pd.DataFrame, sites: pd.DataFrame, min_n: int) -> np.ndarray:
+    """src 실적으로 (발전소, 월, 시) 설비이용률 95% 분위 → dst 행에 붙임.
+    표본 부족·신규 발전소는 같은 B 관측지점 발전소들의 평균, 그것도 없으면 (월, 시) 전체 값."""
+    key = ["site_id", "mo", "hr"]
+    g = src.groupby(key).cf
+    ref = g.quantile(0.95).where(g.size() >= min_n).dropna().rename("v").reset_index()
+    ref["st"] = ref.site_id.map(sites.set_index("site_id").wb_station)
+    ref_st = ref.groupby(["st", "mo", "hr"]).v.mean()
+    ref_all = src.groupby(["mo", "hr"]).cf.quantile(0.95)
+    a = ref.set_index(key).v.reindex(pd.MultiIndex.from_frame(dst[key])).to_numpy()
+    b = ref_st.reindex(pd.MultiIndex.from_arrays([dst.site_id.map(sites.set_index("site_id").wb_station), dst.mo, dst.hr])).to_numpy()
+    c = ref_all.reindex(pd.MultiIndex.from_frame(dst[["mo", "hr"]])).to_numpy()
+    return np.where(np.isnan(a), np.where(np.isnan(b), c, b), a)
+
+
+def add_clear_ref(train: pd.DataFrame, target: pd.DataFrame, sites: pd.DataFrame):
+    """발전소별 맑은날 기준값 (site_cf_p95). 학습 행은 **다른 해(12개월 블록)** 실적으로만 계산해
+    자기 실적이 특징에 섞이지 않게 한다 (섞으면 과대예측). 예측 행은 학습 기간 전체로 계산."""
+    cap = sites.set_index("site_id").capacity_kw
+    for d in (train, target):
+        d["mo"] = d.ts.dt.month.astype("int8")
+        d["hr"] = d.ts.dt.hour.astype("int8")
+    src = train[["site_id", "ts", "mo", "hr"]].assign(cf=train.energy / train.site_id.map(cap))
+    last = train.ts.max()
+    blk = ((last - train.ts).dt.days // 365).to_numpy()
+    out = np.zeros(len(train))
+    for b in np.unique(blk):
+        rows = blk == b
+        out[rows] = _p95(src[blk != b], train[rows], sites, min_n=8)
+    train["site_cf_p95"] = out.astype("float32")
+    target["site_cf_p95"] = _p95(src, target, sites, min_n=15).astype("float32")
+    for d in (train, target):
+        d.drop(columns=["mo", "hr"], inplace=True)
+
+
 def run_rich(gen, sites, pred_a, pred_b, fc_split: str, weight: str, params: dict,
              ext_mode: str = "none", wx_cut: str | None = None) -> pd.DataFrame:
     """특징 확장 버전 — 두 라운드를 한 모델에 (17 우선 + 10 보조), 대상일 내 문맥, 전국 요약, 발전소 ID."""
@@ -58,7 +96,12 @@ def run_rich(gen, sites, pred_a, pred_b, fc_split: str, weight: str, params: dic
     if wx_cut and wx is None:
         raise SystemExit(f"outputs/wx_{wx_cut}_*.parquet 없음 — src/weather_model.py --cutoff {wx_cut} 먼저 실행")
     s = sites.drop(columns=["wa_dist", "wb_dist"], errors="ignore")
-    d = F.build_rich(gen[["site_id", "ts", "energy", "smp"]], s, fa, fb, reg, ext, wx)
+    base = gen[["site_id", "ts", "energy", "smp"]].copy()
+    target = F.grid(sites.site_id, pred_a, pred_b)
+    if CLEAR_REF:
+        add_clear_ref(base, target, sites)
+        log("맑은날 기준값(site_cf_p95) 추가 — 학습 행은 다른 해 실적으로 계산")
+    d = F.build_rich(base, s, fa, fb, reg, ext, wx)
     feats = F.rich_feats(d)
     log(f"학습 행렬 {len(d):,} × {len(feats)}")
     m = M.fit(d, weight, feats=feats, params=params, cat=["site_code"])
@@ -66,9 +109,8 @@ def run_rich(gen, sites, pred_a, pred_b, fc_split: str, weight: str, params: dic
     log("학습 완료")
     if fc_split == "test":
         fa, fb, reg = load("test")
-    target = F.grid(sites.site_id, pred_a, pred_b)
     d = F.build_rich(target, s, fa, fb, reg, ext, wx)
-    out = target.assign(kwh=M.predict(m, d))
+    out = target[["site_id", "ts"]].assign(kwh=M.predict(m, d))
     imp = pd.Series(m.booster_.feature_importance("gain"), index=feats).sort_values(ascending=False)
     log("중요도 상위 15: " + ", ".join(imp.index[:15]))
     return out
