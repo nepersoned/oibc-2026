@@ -27,17 +27,18 @@ import scoring as sc  # noqa: E402
 t0 = time.time()
 log = lambda m: print(f"[{time.time() - t0:6.1f}s] {m}", flush=True)
 TEST_END = "2026-06-01"
+VAL = [sc.VAL_START, sc.VAL_END]
 
 
 def windows(mode: str):
     if mode == "val":
-        pa, pb = sc.window(sc.VAL_START, sc.VAL_END)
+        pa, pb = sc.window(VAL[0], VAL[1])
     else:
         pa, pb = sc.window("2025-06-01", TEST_END)
     return pa, pb
 
 
-def group_frames(mode, comp, sites, ext, train_years=3, min_cov=0.2, wide=True):
+def group_frames(mode, comp, sites, ext, train_years=5, min_cov=0.1, wide=True):
     """집합 단위 학습/예측 설계 행렬 (agg_model 과 같은 특징)."""
     pa, pb = windows(mode)
     fa, fb = A.forecasts("train")
@@ -95,8 +96,9 @@ def regional(mode, comp, sites, ext):
 
 
 # ------------------------------------------------------------------ ② 아날로그 (kNN)
-ANALOG_FEATS = ["ext_ghi_ens", "ext_jma_seamless_ghi", "ext_jx_direct_radiation", "ext_jx_diffuse_radiation",
-                "ext_ghi_ens_dsum", "g_wb_uv_idx", "g_wb_cloud", "g_wa_cloud", "g_wb_cloud_daymean",
+ANALOG_FEATS = ["ext_ghi_ens", "ext_gfs_ghi", "ext_gfs_tcc", "ext_um_ghi", "ext_um_dir", "ext_um_dif",
+                "ext_ghi_ens_dsum", "ext_gfs_ghi_dsum", "ext_um_ghi_dsum",
+                "g_wb_uv_idx", "g_wb_cloud", "g_wa_cloud", "g_wb_cloud_daymean",
                 "ghi_cs", "cosz", "doy_sin", "doy_cos"]
 
 
@@ -107,7 +109,9 @@ def analog(mode, comp, sites, ext, k=30):
     dtr = dtr[(dtr.elev > 0)].dropna(subset=feats)
     mu, sd = dtr[feats].mean(), dtr[feats].std().replace(0, 1)
     w = pd.Series(1.0, index=feats)
-    w[["ext_ghi_ens", "ext_jma_seamless_ghi", "ghi_cs", "cosz"]] = 2.0         # 일사·태양 위치 강조
+    for c in ("ext_ghi_ens", "ext_gfs_ghi", "ext_um_ghi", "ghi_cs", "cosz"):      # 일사·태양 위치 강조
+        if c in w.index:
+            w[c] = 2.0
     pred = np.zeros(len(dpr))
     for g in dtr.group.unique():
         for h in range(24):
@@ -148,14 +152,17 @@ def main() -> None:
     ap.add_argument("--mode", choices=["val", "submit"], required=True)
     ap.add_argument("--composition", default=None)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--val-start", default=sc.VAL_START)
+    ap.add_argument("--val-end", default=sc.VAL_END)
     a = ap.parse_args()
+    VAL[0], VAL[1] = a.val_start, a.val_end
     sites = sc.load_sites()
     comp = sc.read_composition(a.composition) if a.composition else sc.reference_composition(sites)
     ext = F.load_ext("mean")
     p = {"regional": regional, "analog": analog, "linear": linear}[a.model](a.mode, comp, sites, ext)
     p.to_parquet(a.out, index=False)
     if a.mode == "val":
-        act_t = A.targets(A.load_gen(*sc.window(sc.VAL_START, sc.VAL_END)), sites, comp, 0.0)
+        act_t = A.targets(A.load_gen(*sc.window(VAL[0], VAL[1])), sites, comp, 0.0)
         print(f"[{a.model}] 검증 W {A.group_score(p, act_t, sc.load_smp()):,.0f}")
     log(f"저장: {a.out}")
 

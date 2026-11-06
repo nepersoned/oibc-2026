@@ -147,8 +147,13 @@ def fit_predict(train_t, pred_idx, gw_tr, wd_tr, gw_pr, wd_pr, sites, comp, para
     algo = params.pop("algo", "lgb")                     # lgb | xgb | cat
     dpr = design(pred_idx, gw_pr, wd_pr, sites, comp)
     halflife = params.pop("halflife", None)              # 최근 데이터 가중: 반감기(년)
+    csi = params.pop("csi", False)                       # 맑은날 지수 타깃: cf / (청천일사/1000)
     raw = np.zeros(len(dpr))
     y = dtr.cf.clip(0, 1.2)
+    if csi:
+        cs_tr = np.clip(dtr.ghi_cs.to_numpy() / 1000.0, 0.03, None)
+        cs_pr = np.clip(dpr.ghi_cs.to_numpy() / 1000.0, 0.03, None)
+        y = (y / cs_tr).clip(0, 1.5)
     sw = None
     if halflife:
         age = (dtr.ts.max() - dtr.ts).dt.total_seconds().to_numpy() / (365.25 * 86400)
@@ -167,6 +172,8 @@ def fit_predict(train_t, pred_idx, gw_tr, wd_tr, gw_pr, wd_pr, sites, comp, para
         else:
             m = lgb.LGBMRegressor(**{**PARAMS, **params, "random_state": 100 + s}).fit(dtr[feats], y, sample_weight=sw)
         raw += m.predict(dpr[feats]) / seeds
+    if csi:
+        raw = raw * cs_pr
     cf = np.where(dpr.elev > -2, np.clip(raw, 0, None), 0.0)
     imp = pd.Series(m.feature_importances_, index=feats).sort_values(ascending=False)
     log(f"[{algo}] 학습 {len(dtr):,}행 × {len(feats)}  중요도 상위: " + ", ".join(imp.index[:10]))
