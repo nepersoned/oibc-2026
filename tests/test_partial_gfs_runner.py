@@ -6,10 +6,12 @@ from unittest.mock import patch
 
 import pandas as pd
 import numpy as np
+import lightgbm as lgb
 from pandas.testing import assert_frame_equal
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"src"/"analysis"))
 import partial_gfs_runner as runner
+import model as base_model
 
 
 class PartialGFSFeatureTests(unittest.TestCase):
@@ -49,6 +51,31 @@ class PartialGFSFeatureTests(unittest.TestCase):
         self.assertEqual(runner.validate_eval_coverage(raw,"2024-06-01","2024-06-02"),1.)
         with self.assertRaisesRegex(ValueError,"coverage"):
             runner.validate_eval_coverage(raw,"2024-06-01","2025-06-01")
+
+    def test_batched_prediction_preserves_site_order_and_values(self):
+        sites=pd.DataFrame({"site_id":["1","2","3"]})
+        start=pd.Timestamp("2024-06-01 11:00",tz="Asia/Seoul")
+        end=start+pd.Timedelta(hours=1)
+        def build(target,*args):
+            return target.assign(value=target.site_id.astype(float)+target.ts.dt.hour)
+        with patch.object(runner.F,"build_rich",side_effect=build),patch.object(base_model,"predict",side_effect=lambda m,d:d.value.to_numpy()):
+            one=runner.batched_prediction(None,sites,start,end,None,None,None,None,None,3)
+            many=runner.batched_prediction(None,sites,start,end,None,None,None,None,None,1)
+        assert_frame_equal(one,many)
+        self.assertEqual(one.kwh.tolist(),[12.,13.,13.,14.,14.,15.])
+
+    def test_batched_real_lightgbm_predictions_match(self):
+        model=lgb.LGBMRegressor(n_estimators=5,num_leaves=3,min_child_samples=1,n_jobs=1,verbosity=-1)
+        train=pd.DataFrame({"value":[1.,2.,3.,4.]})
+        model.fit(train,[.1,.2,.3,.4]);model.feats_=["value"]
+        sites=pd.DataFrame({"site_id":["1","2","3"]})
+        start=pd.Timestamp("2024-06-01 11:00",tz="Asia/Seoul");end=start+pd.Timedelta(hours=1)
+        def build(target,*args):
+            return target.assign(value=target.site_id.astype(float),elev=20.,cap=10.)
+        with patch.object(runner.F,"build_rich",side_effect=build):
+            one=runner.batched_prediction(model,sites,start,end,None,None,None,None,None,3)
+            many=runner.batched_prediction(model,sites,start,end,None,None,None,None,None,1)
+        assert_frame_equal(one,many)
 
 
 if __name__=="__main__":

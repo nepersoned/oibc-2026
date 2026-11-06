@@ -7,6 +7,7 @@ exact ens_v2 reproduction; source availability and other inputs can differ.
 from __future__ import annotations
 
 import argparse
+import gc
 import os
 from pathlib import Path
 import runpy
@@ -55,7 +56,46 @@ def parse_args(argv=None):
     ap.add_argument("--gfs-partial",required=True)
     ap.add_argument("--model",choices=["site","group"],required=True)
     ap.add_argument("--min-eval-coverage",type=float,default=.90)
+    ap.add_argument("--site-batch-size",type=int,default=32)
     return ap.parse_known_args(argv)
+
+
+def batched_prediction(model, sites, pred_a, pred_b, fa, fb, region, ext, wx, batch_size):
+    """Inference only: same site-order and features, bounded memory."""
+    import model as M
+    if batch_size < 1:
+        raise ValueError("site batch size must be positive")
+    outputs=[]
+    s=sites.drop(columns=["wa_dist","wb_dist"],errors="ignore")
+    for i in range(0,len(sites),batch_size):
+        target=F.grid(sites.site_id.iloc[i:i+batch_size],pred_a,pred_b)
+        d=F.build_rich(target,s,fa,fb,region,ext,wx)
+        outputs.append(target.assign(kwh=M.predict(model,d)))
+        del target,d
+        gc.collect()
+    return pd.concat(outputs,ignore_index=True)
+
+
+def batched_rich_train_predict(gen,sites,pred_a,pred_b,fc_split,weight,params,ext_mode,wx_cut,batch_size):
+    import model as M
+    if fc_split != "train":
+        raise ValueError("research validation only")
+    fa=F.prep_forecast(F.load_forecast("train","wa",F.WA_ALL),"wa",F.WA_ALL)
+    fb=F.prep_forecast(F.load_forecast("train","wb",F.WB_ALL),"wb",F.WB_ALL)
+    region=F.region_means(fa,fb)
+    ext=F.load_ext(ext_mode)
+    wx=F.load_wx(wx_cut) if wx_cut else None
+    if wx_cut and wx is None:
+        raise ValueError("weather correction inputs missing")
+    s=sites.drop(columns=["wa_dist","wb_dist"],errors="ignore")
+    d=F.build_rich(gen[["site_id","ts","energy","smp"]],s,fa,fb,region,ext,wx)
+    feats=F.rich_feats(d)
+    print(f"Training rows={len(d)} features={len(feats)}",flush=True)
+    model=M.fit(d,weight,feats=feats,params=params or {},cat=["site_code"])
+    del d
+    gc.collect()
+    print(f"Training finished; predicting {len(sites)} sites in batches of {batch_size}",flush=True)
+    return batched_prediction(model,sites,pred_a,pred_b,fa,fb,region,ext,wx,batch_size)
 
 
 def validate_eval_coverage(raw,start,end,minimum=.90):
@@ -92,7 +132,12 @@ def main():
     F.load_ext=load
     script=Path(sc.ROOT,"src","pipeline.py" if a.model=="site" else "agg_model.py")
     sys.argv=[str(script)]+rest
-    runpy.run_path(str(script),run_name="__main__")
+    if a.model=="site":
+        import pipeline
+        pipeline.run_rich=lambda *args: batched_rich_train_predict(*args,batch_size=a.site_batch_size)
+        pipeline.main()
+    else:
+        runpy.run_path(str(script),run_name="__main__")
 
 
 if __name__=="__main__":
