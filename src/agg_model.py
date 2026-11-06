@@ -177,7 +177,9 @@ def load_gen(a, b):
 
 def group_score(gp: pd.DataFrame, actual_t: pd.DataFrame, smp: pd.Series) -> float:
     """gp: group, ts, pred (보고 중 발전소 기준 kWh) / actual_t: group, ts, act → W."""
-    m = actual_t[["group", "ts", "act"]].merge(gp, on=["group", "ts"], how="left").fillna({"pred": 0})
+    m = actual_t[["group", "ts", "act"]].merge(gp, on=["group", "ts"], how="left", validate="one_to_one")
+    if m.pred.isna().any() or not np.isfinite(m.pred.to_numpy()).all():
+        raise ValueError("group prediction missing or non-finite on scored rows")
     w = 0.1 * m.ts.map(smp).to_numpy() * sc.k_weight(m.ts)
     return float((w * (m.pred - m.act).abs()).sum())
 
@@ -194,6 +196,7 @@ def main() -> None:
     ap.add_argument("--out", default=None)
     ap.add_argument("--min-cov", type=float, default=0.3, help="학습에 쓸 최소 용량 커버리지")
     ap.add_argument("--ext", choices=["none", "mean"], default="mean")
+    ap.add_argument("--diagnostic-out", default=None, help="write observed-capacity post-hoc predictions here")
     a = ap.parse_args()
     params = json.loads(a.params)
 
@@ -216,19 +219,28 @@ def main() -> None:
         act_t = targets(act, sites, comp, min_cov=0.0)            # 보고 중 발전소 기준 실적
         idx = act_t[["group", "ts"]]
         p = fit_predict(tr, idx, gw_tr, wd_tr, gw_tr, wd_tr, sites, comp, params)
-        p = p.merge(act_t[["group", "ts", "cap_avail"]], on=["group", "ts"])
-        p["pred"] = p.cf_hat * p.cap_avail
+        if p.duplicated(["group", "ts"]).any() or p.cf_hat.isna().any() or not np.isfinite(p.cf_hat).all():
+            raise ValueError("invalid group predictions")
+        p = p.merge(act_t[["group", "ts", "cap_avail"]], on=["group", "ts"], validate="one_to_one")
+        p["pred"] = p.cf_hat * p.cap_avail  # post-hoc local diagnostic only
         W_agg = group_score(p[["group", "ts", "pred"]], act_t, smp)
         print(f"\n[집합 모델] W {W_agg:,.0f}")
+        if a.diagnostic_out:
+            p.to_parquet(a.diagnostic_out, index=False)
         if a.out:
-            p.to_parquet(a.out, index=False)
+            total = sites.assign(group=sites.site_id.map(comp)).groupby("group").capacity_kw.sum()
+            submit = p[["group", "ts", "cf_hat"]].copy()
+            submit["pred"] = submit.cf_hat * submit.group.map(total)
+            submit.to_parquet(a.out, index=False)
         if a.bu:
             bu = pd.read_parquet(a.bu)
             bu["ts"] = sc.to_ts(bu.ts)
             bu = act[["site_id", "ts"]].merge(bu, on=["site_id", "ts"], how="left")
             bu["group"] = bu.site_id.map(comp)
             bg = bu.groupby(["group", "ts"], as_index=False).kwh.sum().rename(columns={"kwh": "bu"})
-            j = p.merge(bg, on=["group", "ts"], how="left").fillna({"bu": 0})
+            j = p.merge(bg, on=["group", "ts"], how="left", validate="one_to_one")
+            if j.bu.isna().any() or not np.isfinite(j.bu).all():
+                raise ValueError("site prediction missing or non-finite on scored group rows")
             W_bu = group_score(j[["group", "ts"]].assign(pred=j.bu), act_t, smp)
             print(f"[발전소 모델] W {W_bu:,.0f}")
             for alpha in (0.0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0):
