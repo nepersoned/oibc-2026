@@ -45,7 +45,8 @@ def load_generation(a: pd.Timestamp, b: pd.Timestamp) -> pd.DataFrame:
 
 
 def run_rich(gen, sites, pred_a, pred_b, fc_split: str, weight: str, params: dict,
-             ext_mode: str = "none", wx_cut: str | None = None) -> pd.DataFrame:
+             ext_mode: str = "none", wx_cut: str | None = None,
+             drop_features: list[str] | None = None) -> pd.DataFrame:
     """특징 확장 버전 — 두 라운드를 한 모델에 (17 우선 + 10 보조), 대상일 내 문맥, 전국 요약, 발전소 ID."""
     def load(split):
         fa = F.prep_forecast(F.load_forecast(split, "wa", F.WA_ALL), "wa", F.WA_ALL)
@@ -59,7 +60,7 @@ def run_rich(gen, sites, pred_a, pred_b, fc_split: str, weight: str, params: dic
         raise SystemExit(f"outputs/wx_{wx_cut}_*.parquet 없음 — src/weather_model.py --cutoff {wx_cut} 먼저 실행")
     s = sites.drop(columns=["wa_dist", "wb_dist"], errors="ignore")
     d = F.build_rich(gen[["site_id", "ts", "energy", "smp"]], s, fa, fb, reg, ext, wx)
-    feats = F.rich_feats(d)
+    feats = select_rich_features(d, drop_features)
     log(f"학습 행렬 {len(d):,} × {len(feats)}")
     m = M.fit(d, weight, feats=feats, params=params, cat=["site_code"])
     del d
@@ -74,16 +75,33 @@ def run_rich(gen, sites, pred_a, pred_b, fc_split: str, weight: str, params: dic
     return out
 
 
+def select_rich_features(d: pd.DataFrame, drop_features: list[str] | None = None) -> list[str]:
+    """Select the actual rich input columns, optionally for a preregistered ablation."""
+    feats = F.rich_feats(d)
+    drops = set(drop_features or [])
+    unknown = drops - set(feats)
+    if unknown:
+        raise ValueError(f"unknown rich feature(s) requested for ablation: {sorted(unknown)}")
+    selected = [c for c in feats if c not in drops]
+    if not selected:
+        raise ValueError("feature ablation cannot remove every model input")
+    return selected
+
+
 def run(train_a, train_b, pred_a, pred_b, fc_split: str, train_years: int,
         weight: str = "none", fset: str = "base", params: dict | None = None,
-        ext_mode: str = "none", wx_cut: str | None = None) -> pd.DataFrame:
+        ext_mode: str = "none", wx_cut: str | None = None,
+        drop_features: list[str] | None = None) -> pd.DataFrame:
     """학습 [train_a, train_b) → 예측 [pred_a, pred_b] 발전소별 kWh."""
     sites = sc.load_sites()
     gen = load_generation(train_a, train_b)
     gen["smp"] = gen.ts.map(sc.load_smp())          # 학습 구간 과거 SMP (가중치용, 입력 특징 아님)
     log(f"학습 발전량 {len(gen):,}행 ({train_years}년)")
     if fset == "rich":
-        return run_rich(gen, sites, pred_a, pred_b, fc_split, weight, params or {}, ext_mode, wx_cut)
+        return run_rich(gen, sites, pred_a, pred_b, fc_split, weight, params or {}, ext_mode, wx_cut,
+                        drop_features)
+    if drop_features:
+        raise ValueError("--drop-features is supported only with --fset rich")
 
     fa_tr, fb_tr = F.load_forecast("train", "wa", F.WA_COLS), F.load_forecast("train", "wb", F.WB_COLS)
     if fc_split == "train":
@@ -123,6 +141,8 @@ def main() -> None:
                     help="외부 수치예보 일사량 (data_ext/, src/fetch_external.py)")
     ap.add_argument("--wx", action="store_true", help="1단계 날씨 보정 모델 특징 사용 (src/weather_model.py)")
     ap.add_argument("--tag", default="baseline", help="출력 파일 이름 꼬리표")
+    ap.add_argument("--drop-features", default="",
+                    help="rich ablation: comma-separated exact feature names to exclude")
     ap.add_argument("--val-start", default=sc.VAL_START, help="검증 구간 시작 (기본 2024-06-01)")
     ap.add_argument("--val-end", default=sc.VAL_END)
     a = ap.parse_args()
@@ -133,7 +153,8 @@ def main() -> None:
         pa, pb = sc.window(a.val_start, a.val_end)
         ta = pa - pd.DateOffset(years=a.train_years)
         pred = run(ta, pa, pa, pb, "train", a.train_years, a.weight, a.fset, json.loads(a.params), a.ext,
-                   a.val_start if a.wx else None)
+                   a.val_start if a.wx else None,
+                   [x.strip() for x in a.drop_features.split(",") if x.strip()])
         suffix = "" if a.val_start == sc.VAL_START else f"_{a.val_start[:4]}"
         path = os.path.join(OUT, f"val_{a.tag}{suffix}_sites.parquet")
         pred.to_parquet(path, index=False)
@@ -145,7 +166,8 @@ def main() -> None:
     pa, pb = sc.window(TRAIN_END, "2026-06-01")
     ta = pa - pd.DateOffset(years=a.train_years)
     pred = run(ta, pa, pa, pb, "test", a.train_years, a.weight, a.fset, json.loads(a.params), a.ext,
-               TRAIN_END if a.wx else None)
+               TRAIN_END if a.wx else None,
+               [x.strip() for x in a.drop_features.split(",") if x.strip()])
     pred.to_parquet(os.path.join(OUT, f"test_{a.tag}_sites.parquet"), index=False)
 
     os.makedirs(SUB, exist_ok=True)

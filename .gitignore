@@ -2,6 +2,8 @@
 data/
 data_ext/
 *.csv
+# Aggregate feature metadata only; source/data CSVs remain ignored.
+!FEATURE_AUDIT_SM30.csv
 *.parquet
 *.zip
 
