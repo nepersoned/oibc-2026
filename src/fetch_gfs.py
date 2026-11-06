@@ -23,6 +23,7 @@ import os
 import threading
 import sys
 import time
+import tempfile
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -104,10 +105,19 @@ def _box_mean(grib: bytes) -> float:
     return float(g[np.ix_(lat_idx, lon_idx)].mean())
 
 
-def fetch_day(day: pd.Timestamp) -> str:
-    path = os.path.join(RAW, day.strftime("%Y%m%d") + ".npz")
+def fetch_day(day: pd.Timestamp, raw_dir: str = RAW) -> str:
+    path = os.path.join(raw_dir, day.strftime("%Y%m%d") + ".npz")
     if os.path.exists(path):
-        return "skip"
+        try:
+            old = np.load(path)["rows"]
+            if old.shape == (len(LEADS), 5) and np.isfinite(old[:, 1:]).all():
+                return "skip"
+        except Exception:
+            pass
+        try:
+            os.remove(path)
+        except OSError:
+            return "invalid-cache"
     rows = []
     for lead in LEADS:
         txt = None
@@ -131,7 +141,17 @@ def fetch_day(day: pd.Timestamp) -> str:
             a0, a1 = desc.split(" hour")[0].split("-")                 # 'a0-a1 hour ave fcst'
             rec += [v, int(a1) - int(a0)]
         rows.append(rec)
-    np.savez(path, rows=np.array(rows, dtype=float))
+    arr = np.array(rows, dtype=float)
+    if arr.shape != (len(LEADS), 5) or not np.isfinite(arr[:, 1:]).all():
+        return "failed"
+    fd, tmp = tempfile.mkstemp(prefix=".gfs-", suffix=".npz", dir=raw_dir)
+    os.close(fd)
+    try:
+        np.savez(tmp, rows=arr)
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
     return "ok"
 
 
@@ -167,11 +187,11 @@ def clear_sky(ts_kst: pd.DatetimeIndex) -> np.ndarray:
     return np.where(cz > 0, 1098 * czc * np.exp(-0.057 / czc), 0.0)
 
 
-def build_hourly() -> pd.DataFrame:
+def build_hourly(raw_dir: str = RAW) -> pd.DataFrame:
     recs = []
-    for f in sorted(os.listdir(RAW)):
+    for f in sorted(os.listdir(raw_dir)):
         init = pd.Timestamp(f[:8], tz="UTC")                       # D-1 00 UTC
-        da = deaverage(np.load(os.path.join(RAW, f))["rows"])
+        da = deaverage(np.load(os.path.join(raw_dir, f))["rows"])
         for lead, (ghi3, tcc3) in da.items():
             end = init + pd.Timedelta(hours=lead)                  # 3h 구간 (end-3h, end] UTC
             hrs = pd.date_range(end - pd.Timedelta(hours=2), end, freq="h").tz_convert(TZ)
@@ -193,21 +213,28 @@ def main() -> None:
     ap.add_argument("--end", default="2026-05-31")
     ap.add_argument("--workers", type=int, default=24)
     ap.add_argument("--build-only", action="store_true")
+    ap.add_argument("--raw-dir", default=RAW)
+    ap.add_argument("--out", default=OUT)
     a = ap.parse_args()
-    os.makedirs(RAW, exist_ok=True)
+    os.makedirs(a.raw_dir, exist_ok=True)
     if not a.build_only:
         days = pd.date_range(a.start, a.end, freq="D", tz="UTC")
         t0, done = time.time(), 0
         with ThreadPoolExecutor(a.workers) as ex:
-            futs = {ex.submit(fetch_day, d): d for d in days}
+            futs = {ex.submit(fetch_day, d, a.raw_dir): d for d in days}
+            results = []
             for f in as_completed(futs):
                 done += 1
+                results.append((futs[f].strftime("%Y-%m-%d"), f.result()))
                 if done % 100 == 0:
                     print(f"{done}/{len(days)}  {time.time() - t0:.0f}s", flush=True)
-    df = build_hourly()
-    df.to_parquet(OUT, index=False)
+            failed = [d for d, status in results if status not in ("ok", "skip")]
+            if failed:
+                print(f"실패 날짜 {len(failed)}개: {', '.join(failed[:20])}", flush=True)
+    df = build_hourly(a.raw_dir)
+    df.to_parquet(a.out, index=False)
     cov = df.groupby(df.ts.dt.year).gfs_ghi.apply(lambda x: x.notna().mean()).round(2).to_dict()
-    print(f"저장: {OUT}  {len(df):,}행  연도별 커버리지 {cov}")
+    print(f"저장: {a.out}  {len(df):,}행  연도별 커버리지 {cov}")
 
 
 if __name__ == "__main__":
