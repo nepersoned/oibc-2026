@@ -43,6 +43,13 @@ class PartialGFSFeatureTests(unittest.TestCase):
         self.assertTrue(pd.isna(out.ext_gfs_ghi.iloc[0]))
         self.assertEqual(out.ext_ghi_ens.iloc[0],100.)
 
+    def test_incomplete_validation_window_is_rejected(self):
+        ts=pd.date_range("2024-06-01 01:00",periods=24,freq="h",tz="Asia/Seoul")
+        raw=pd.DataFrame({"ts":ts,"gfs_ghi":[1.]*24})
+        self.assertEqual(runner.validate_eval_coverage(raw,"2024-06-01","2024-06-02"),1.)
+        with self.assertRaisesRegex(ValueError,"coverage"):
+            runner.validate_eval_coverage(raw,"2024-06-01","2025-06-01")
+
 
 if __name__=="__main__":
     unittest.main()

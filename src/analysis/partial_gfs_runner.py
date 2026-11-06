@@ -54,7 +54,23 @@ def parse_args(argv=None):
     ap=argparse.ArgumentParser(description=__doc__,allow_abbrev=False)
     ap.add_argument("--gfs-partial",required=True)
     ap.add_argument("--model",choices=["site","group"],required=True)
+    ap.add_argument("--min-eval-coverage",type=float,default=.90)
     return ap.parse_known_args(argv)
+
+
+def validate_eval_coverage(raw,start,end,minimum=.90):
+    if not 0 <= minimum <= 1:
+        raise ValueError("invalid coverage threshold")
+    if raw.ts.duplicated().any():
+        raise ValueError("duplicate NOAA timestamps")
+    ts=sc.to_ts(raw.ts)
+    start_ts,end_ts=sc.window(start,end)
+    expected=pd.date_range(start_ts,end_ts,freq="h")
+    values=pd.Series(raw.gfs_ghi.to_numpy(),index=ts)
+    coverage=float(np.isfinite(values.reindex(expected).to_numpy()).mean())
+    if coverage < minimum:
+        raise ValueError(f"NOAA evaluation coverage {coverage:.2%} below {minimum:.2%}")
+    return coverage
 
 
 def main():
@@ -66,6 +82,10 @@ def main():
     if Path(sc.ROOT,"data_ext","gfs_hourly.parquet").exists():
         raise ValueError("normal GFS file exists; use the original pipeline instead")
     raw=pd.read_parquet(a.gfs_partial)
+    start=rest[rest.index("--val-start")+1] if "--val-start" in rest else sc.VAL_START
+    end=rest[rest.index("--val-end")+1] if "--val-end" in rest else sc.VAL_END
+    coverage=validate_eval_coverage(raw,start,end,a.min_eval_coverage)
+    print(f"NOAA evaluation hourly GHI coverage: {coverage:.2%}",flush=True)
     original=F.load_ext
     def load(mode="mean"):
         return None if mode=="none" else attach_gfs(original(mode),raw)
