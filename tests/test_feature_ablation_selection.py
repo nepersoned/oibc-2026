@@ -27,6 +27,11 @@ class FeatureAblationSelectionTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "cannot remove every"):
             pipeline.select_rich_features(self.frame, ["base_feature", "ablation_feature"])
 
+    def test_site_code_categorical_metadata_follows_selection(self):
+        self.frame["site_code"] = [1]
+        selected = pipeline.select_rich_features(self.frame, ["site_code"])
+        self.assertNotIn("site_code", selected)
+
 
 if __name__ == "__main__":
     unittest.main()

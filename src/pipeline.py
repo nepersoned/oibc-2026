@@ -62,7 +62,11 @@ def run_rich(gen, sites, pred_a, pred_b, fc_split: str, weight: str, params: dic
     d = F.build_rich(gen[["site_id", "ts", "energy", "smp"]], s, fa, fb, reg, ext, wx)
     feats = select_rich_features(d, drop_features)
     log(f"학습 행렬 {len(d):,} × {len(feats)}")
-    m = M.fit(d, weight, feats=feats, params=params, cat=["site_code"])
+    # Keep categorical metadata consistent with the selected model inputs.
+    # This matters for SC1/site_code ablations: removed columns must not be
+    # passed to LightGBM as categorical features.
+    cat = [c for c in ("site_code",) if c in feats]
+    m = M.fit(d, weight, feats=feats, params=params, cat=cat)
     del d
     log("학습 완료")
     if fc_split == "test":
