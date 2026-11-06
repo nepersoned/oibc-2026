@@ -63,14 +63,22 @@ def compare(train, evaluation):
     result = {"fit_period": [str(tr.ts.min()), str(tr.ts.max())],
               "evaluation_period": [str(ts.min()), str(ts.max())], "fitted_candidate_fraction": alpha,
               "residual_correlation": float((ev.team-ev.actual).corr(ev.candidate-ev.actual)), "models": {}}
+    daily = (ts - pd.Timedelta(hours=1)).dt.floor("D")
+    base_penalty=ev.weight*np.abs(ev.team-ev.actual)
+    base_daily=base_penalty.groupby(daily).sum().sort_index()
+    blocks=[np.arange(i,min(i+7,len(base_daily))) for i in range(0,len(base_daily),7)]
+    draws=np.random.default_rng(20261106).integers(0,len(blocks),size=(2000,len(blocks)))
     for name, frac in (("team", 0.), ("candidate", 1.), ("team90_candidate10", .1),
                        ("team80_candidate20", .2), ("team70_candidate30", .3), ("fit_earlier", alpha)):
         p = ev.team.to_numpy() * (1-frac) + ev.candidate.to_numpy() * frac
         penalty = ev.weight * np.abs(p-actual)
-        daily = (ts - pd.Timedelta(hours=1)).dt.floor("D")
+        daily_delta=penalty.groupby(daily).sum().reindex(base_daily.index).to_numpy()-base_daily.to_numpy()
+        block_delta=np.array([daily_delta[ix].sum() for ix in blocks])
+        ci=np.quantile(block_delta[draws].sum(axis=1),[.025,.975]).tolist()
         result["models"][name] = {"W": float(penalty.sum()),
             "monthly_W": penalty.groupby(daily.dt.strftime("%Y-%m")).sum().to_dict(),
             "daily_W": penalty.groupby(daily.dt.strftime("%Y-%m-%d")).sum().to_dict(),
+            "bootstrap_delta_W_ci95":ci,
             "daily_penalty_mean": float(penalty.groupby(daily).sum().mean())}
     return result
 
