@@ -73,6 +73,7 @@ def batched_prediction(model, sites, pred_a, pred_b, fa, fb, region, ext, wx, ba
         outputs.append(target.assign(kwh=M.predict(model,d)))
         del target,d
         gc.collect()
+        print(f"Predicted sites {min(i+batch_size,len(sites))}/{len(sites)}",flush=True)
     return pd.concat(outputs,ignore_index=True)
 
 
