@@ -288,9 +288,12 @@ def calendar(ts: pd.Series) -> pd.DataFrame:
     off = (dow >= 5) | hol
     prev_off = (day - pd.Timedelta(days=1)).isin(_OFF) | ((day - pd.Timedelta(days=1)).dt.dayofweek >= 5)
     next_off = (day + pd.Timedelta(days=1)).isin(_OFF) | ((day + pd.Timedelta(days=1)).dt.dayofweek >= 5)
+    mon = day.dt.month
+    lowload = off & mon.isin([3, 4, 5, 9, 10, 11])                 # 경부하기(봄·가을) 휴일 = 출력제어 집중일
     return pd.DataFrame({"dow": dow.astype("int8").to_numpy(), "is_hol": hol.astype("int8").to_numpy(),
                          "is_off": off.astype("int8").to_numpy(),
-                         "off_run": (off & (prev_off | next_off)).astype("int8").to_numpy()})
+                         "off_run": (off & (prev_off | next_off)).astype("int8").to_numpy(),
+                         "lowload": lowload.astype("int8").to_numpy()})
 
 
 def grid(site_ids: pd.Series, start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
