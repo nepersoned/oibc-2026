@@ -127,6 +127,7 @@ EXT_MODELS_2024 = ["icon_seamless", "gem_seamless", "meteofrance_seamless", "cma
 USE_2024 = os.environ.get("OIBC_EXT2024", "0") == "1"      # 실험 스위치
 CALENDAR = os.environ.get("OIBC_CAL", "1") == "1"         # 요일·공휴일 특징
 USE_GFS = os.environ.get("OIBC_GFS", "1") == "1"          # NOAA GFS 원본 상자 평균
+USE_GFS2 = os.environ.get("OIBC_GFS2", "0") == "1"         # GFS 확장 통계
 USE_UMPTS = os.environ.get("OIBC_UMPTS", "0") == "1"       # LDAPS 고정 5지점 값을 별도 열로
 USE_OPENMETEO = os.environ.get("OIBC_OPENMETEO", "0") == "1"  # Open-Meteo: 운영진 답변으로 사용 불가 → 기본 꺼짐
 USE_GEFS = os.environ.get("OIBC_GEFS", "1") == "1"        # NOAA GEFS 평균·퍼짐
@@ -177,6 +178,13 @@ def load_ext(mode: str = "mean") -> pd.DataFrame | None:
             f.loc[td.isin(set(bad)), ["gfs_ghi", "gfs_kcs", "gfs_tcc"]] = np.nan
         out = out.join(f.set_index("ts")[["gfs_ghi", "gfs_kcs", "gfs_tcc"]].add_prefix("ext_"), how="outer")
         ghi_cols.append("ext_gfs_ghi")
+    gfs2 = os.path.join(root, "gfs2_hourly.parquet")
+    if USE_GFS2 and os.path.exists(gfs2):                      # GFS 확장: 장파·습도·넓은 상자·공간 표준편차 (src/fetch_gfs2.py)
+        f = pd.read_parquet(gfs2)
+        f["ts"] = f.ts.dt.tz_convert(TZ).astype(f"datetime64[ns, {TZ}]")
+        cols = [c for c in f.columns if c != "ts" and not c.startswith("gfs2_dswrf_in") or c == "gfs2_dswrf_insd"]
+        cols = [c for c in cols if c != "gfs2_dswrf_in"]       # 안쪽 평균 일사는 ext_gfs_ghi 와 중복 → 제외
+        out = out.join(f.set_index("ts")[cols].add_prefix("ext_"), how="outer")
     gefs = os.path.join(root, "gefs_hourly.parquet")
     if USE_GEFS and os.path.exists(gefs):                      # NOAA GEFS 평균 + 퍼짐 (src/fetch_gefs.py)
         f = pd.read_parquet(gefs)
