@@ -27,7 +27,7 @@ S1–S3 상세 및 제출 시각 기준은 [SUBMISSIONS.md](SUBMISSIONS.md) 참�
 | SM#47 L1 seed7 | L1 Site + Group100 | 106,266,107 | 202,920,302 | — | 2024 악화, 조기 중단 | [보고서](SM47_L1_EXPERIMENT_REPORT.md) |
 | SM#48 B2 | optimized composition + refit Group | 106,740,431 (회고) | 194,338,244 | — | 공식 미제출; 재사용 평가기간 | [보고서](SM48_COMPOSITION_GROUP_REFIT.md); `outputs/sm48/manifest.json` |
 | SM#49 | candidate stress test, no training | — | — | — | A1-REF 권고, 감사 | [비교](outputs/sm49/FINAL_CANDIDATE_COMPARISON.md); [선정](outputs/sm49/FINAL_SELECTION_RECOMMENDATION.md) |
-| SM#50 | forecast uncertainty regime diagnostic | Not Run | Not Run | — | 분석 설계 단계 | [사전등록](SM50_PREREGISTRATION.md) |
+| SM#50 | forecast uncertainty regime diagnostic | — | — | — | 진단 완료; 동적 alpha·새 모델 미채택 | [사전등록](SM50_PREREGISTRATION.md); [결과](SM50_FORECAST_UNCERTAINTY_DIAGNOSTIC.md) |
 
 ## 3. 파일 무결성
 

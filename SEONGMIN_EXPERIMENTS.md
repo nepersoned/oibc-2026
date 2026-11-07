@@ -561,6 +561,19 @@ Refit Group seed100 for the fixed SM45 composition while reusing Site3. B2 W was
 
 No training or candidate changes. Re-scored frozen A1-REF, A1-COMP and SM48 B2 artifacts under common observed-site masks and verified all three CSV pairs with local validator exit 0. A1-REF was recommended under the conservative pre-registered choice rule; no portal action occurred in SM49. Reports are in [`outputs/sm49/`](outputs/sm49/FINAL_CANDIDATE_COMPARISON.md), [`submission readiness`](outputs/sm49/SUBMISSION_READINESS_AUDIT.md), and [`forecast audit`](outputs/sm49/FORECAST_DISTRIBUTION_AUDIT.md).
 
+## SM#50 — 예보 불확실성별 Site/Group 정산 성능 진단
+
+SM45의 저장된 weekday Site3/Group seed100 예측을 재학습 없이 재사용했다. WA/WB cloud 기관 간 차이, round17–10 수정폭, 대상일 내부 시간 변화, 기관별 구름량 시간분산을 두 검증연도 직전 2년의 제공 예보로부터 산출하고, 학습기간에서만 정한 tertile 구간으로 공통 관측 site-hour 마스크의 Site-only, Group-only, 고정 alpha=0.2 W를 비교했다. 예측시점 이후 실측과 평가 잔차는 기상 regime 및 경계 산출에 포함하지 않았다.
+
+Group-only는 2023–24/2024–25에 123,344,894/216,273,013원으로, Site-only 107,248,930/199,015,602원보다 모든 regime 구간에서 높은 W였다. 고정 Site 80% + Group 20%는 106,673,757/197,526,260원으로 전체기간 최저였지만, 2023에서 Site-only보다 낮은 W를 보인 지표×bin은 18개 중 13개였고 2024는 18개 모두였다. Site/Group 잔차 상관은 대체로 0.78–0.90으로 높았다.
+
+Round revision 및 시간별 cloud 변화에서 Group 상대 W가 high uncertainty 구간에서 커지는 경우가 보였으나 기관 간 불일치는 두 해 방향이 달랐고, 월별·피크/비피크 조정 결과도 일관되지 않았다. 따라서 동적 alpha의 안정 근거는 부족하다. 2023 Group G2에는 `min_cov=0.3` 학습 라벨이 없고 2024 검증도 반복 사용되었으므로 이 결과를 독립 일반화나 인과 효과로 해석하지 않는다. 새 모델·제출 CSV는 만들지 않았으며 SM46 A1-REF를 유지한다.
+
+- 사전등록: [SM50_PREREGISTRATION.md](SM50_PREREGISTRATION.md)
+- 결과: [SM50_FORECAST_UNCERTAINTY_DIAGNOSTIC.md](SM50_FORECAST_UNCERTAINTY_DIAGNOSTIC.md)
+- 재현 스크립트: `src/analysis/sm50_forecast_uncertainty.py`
+- 로컬 집계 산출물: `outputs/sm50/` (Git 제외)
+
 # SM 전체 실험 결과 요약
 
 | SM ID | 실험 목적 | 기존 대비 변경사항 | 2023~24 W (KRW) | 2024~25 W (KRW) | 최종 판정 | 근거 문서 |
@@ -569,17 +582,33 @@ No training or candidate changes. Re-scored frozen A1-REF, A1-COMP and SM48 B2 a
 | SM#4 | JH#1 재현 | 기존 baseline 코드 재실행 | 123,997,939 | 224,680,215 | 재현 차이 기록 | [상세](#sm4--기존-공식-기준-모델-재현) |
 | SM#5 | 오라클 진단 | 일 총량/시간 형태 분해 | — | 106,954,402† | 진단 전용 | [상세](#sm5--총량형태-오라클-진단-전용) |
 | SM#6 | 잔차 기반 구성 | 시간순 잔차 이동 | — | 224,433,733 | 약한 개선, 미채택 | [상세](#sm6--잔차-커버리지와-시간순-그룹-구성) |
-| SM#7–10 | 데이터·입력·기준 감사 | 소스, 결측, float32 재현 | 123,997,939 (SM10) | 224,547,460 (SM10) | SM10 재현 기준 확정 | [상세 기록](#sm7--외부-데이터-및-누락-처리-점검) |
+| SM#7 | 외부 입력·결측 처리 감사 | 외부 원천·결측 계보 | — | — | 감사 기록 | [상세](#sm7--외부-데이터-및-누락-처리-점검) |
+| SM#8 | JMA 예보와 발전 잔차 관계 | 예보 잔차 연관 진단 | — | — | 관계 진단, 미채택 | [상세](#sm8--jma-예보와-발전량-잔차의-기술적-연관) |
+| SM#9 | Open-Meteo GFS 예보 수준 분석 | 공급 예보와 잔차 비교 | — | — | 기술 진단 | [상세](#sm9--open-meteo-gfs-예보-수준과-발전량-잔차) |
+| SM#10 | float32 기준 재현 | 기준 코드 입력 dtype 재현 | 123,997,939 | 224,547,460 | 공식 재현 기준 | [상세](#sm10--최초-기준-코드의-float32-처리-재현) |
 | SM#11 | 일사량 일별 보정 | 사전등록 보정 실험 | — | — | 개선 입증 안 됨 | [상세](#sm11--일사량-기반-일별-보정-사전-등록-2026-11-06) |
 | SM#12 | 직접 예보 일사 | 새 일사 입력 | 108,446,840 | 205,509,986 | 안정성 미달 | [상세](#sm12-실제-결과--직접-예보-입력-연구-전용미채택) |
-| SM#13–21 | NOAA 환경·예보·평가 도구 | 데이터 복원·진단 및 누수 방지 | — | — | 준비·도구 실험, 개별 판정은 상세 기록 | [상세](#sm13--noaa-grib-환경변환-점검) |
-| SM#22–25 | GFS 공간피처 개발 | 구현·표본·파일럿 | — | — | W 학습 미실행/부분 수집 중단 | [상세](#sm22--research-a-공간-피처-생성기-및-데이터-가용성-점검) |
+| SM#13 | NOAA GRIB 환경 점검 | 변환 도구·실행환경 | — | — | 준비 점검 | [상세](#sm13--noaa-grib-환경변환-점검) |
+| SM#14 | 입력 정밀도·시드 재현 | dtype/seed 진단 사전등록 | — | — | 재현 점검 | [상세](#sm14--입력-정밀도시드-재현-사전-등록) |
+| SM#15 | 시간순 E 앙상블 도구 | 기존 예측 결합 검증 | — | — | 도구 점검 | [상세](#sm15--기본-모델--e-시간순-앙상블-도구-점검-사전-등록) |
+| SM#16 | 월별 오차 구조 | 2025-03 오차 진단 | — | — | 진단 전용 | [상세](#sm16--2025년-3월-오차-구조-진단) |
+| SM#17 | 리더보드 역산·평가 도구 | 점수 차이 식별 범위 분석 | — | — | 진단·도구 | [상세](#sm17--리더보드-역산과-평가-도구) |
+| SM#18 | NOAA 표본 디코딩·복원 | GRIB 표본 기반 수집 | — | — | 자료 파이프라인 | [상세](#sm18--noaa-표본-디코딩-및-전체-복원-시작) |
+| SM#19 | NOAA 인덱스 오류 복구 | 날짜 인덱스 보정 | — | — | 데이터 처리 복구 | [상세](#sm19--2022-11-30-noaa-인덱스-불일치-복구) |
+| SM#20 | NOAA 부분자료 기준모델 | GFS 부분 복원 모델 진단 | — | — | 독립 재현 아님·보류 | [상세](#sm20--noaa-부분-복원-기준-모델-사전-등록) |
+| SM#21 | 입력기간 누수 방지 | 2023 학습 구간 오류 차단 | — | — | 실행 오류 차단 | [상세](#sm21--2023-모델-입력-기간-오류-차단) |
+| SM#22 | GFS 공간피처 설계·가용성 | feature generator 추가 | — | — | 전체 W 미실행 | [상세](#sm22--research-a-공간-피처-생성기-및-데이터-가용성-점검) |
+| SM#23 | GFS GRIB 표본 연결 시도 | 공간 표본 디코딩 | — | — | ecCodes 차단 | [상세](#sm23--noaa-gfs-공간-표본-연결-시도) |
+| SM#24 | GFS 격자 표본 검증 | 3개 날짜 18개 메시지 확인 | — | — | 표본 검증, 학습 미실행 | [상세](#sm24--실제-noaa-gfs-공간-격자-표본-검증) |
+| SM#25 | GFS 시계열 파일럿 | 부분 시계열 복원 | — | — | 수집 중단, W 미산출 | [상세](#sm25--파일럿-시계열-및-전체-수집-중단) |
 | SM#26 | GFS 공간 A0/A1/A2 | 공간 분포 피처 | 103,359,256 / 104,225,520 / 103,063,553 | 191,784,853 / 190,858,619 / 190,033,416 | A2 CI 0 포함, 보류 | [상세](#sm26--전체-공간-gfs와-a0a1a2-실제-w-비교) |
 | SM#27 | Group A2 coverage | 그룹 타깃 커버리지 보정 | 112,839,689 → 106,557,372 | 188,492,339 → 190,071,616 | 연도 불일치 | [상세](#sm27--그룹-모델-a2-결과-검증) |
 | SM#28 | GFS/clear-sky 비율 | 물리비율 피처 | 102,903,673 | 195,461,109 | 연도 불일치 | [상세](#sm28--b1-청천일사-대비-gfs-일사-비율) |
 | SM#29 | Open-Meteo 제거 | GFS-only C1 | — | 192,371,210 | +0.306%, 보류 | [상세](#sm29--open-meteo-제거-c1-실행) |
 | SM#30 | GFS-only 연도 비교 | C1/C2 | 103,359,256 / 107,043,192 / 105,070,918 | 191,784,853 / 192,371,210 / 192,545,733 | 안정 개선 없음 | [상세](#sm30--open-meteo-제거-연도별-c1c2-재평가) |
-| SM#31–33 | Feature audit/ablation | 피처 제거·seed 확인 | 서로 다른 후보; 상세 보고서 참조 | 서로 다른 후보; 상세 보고서 참조 | 안정적 증분 미입증 | [SM32](FEATURE_ABLATION_SM32.md), [SM33](FEATURE_ABLATION_SM33.md) |
+| SM#31 | C1 입력 피처 감사 | 기존 105개 입력 계보·분포 | — | — | 감사만, W 재평가 없음 | [상세](FEATURE_AUDIT_SM30.md) |
+| SM#32 | FA1/FA2 피처 제거 | 중복·희소 변수 ablation | 110,008,344 / 109,343,198 / 108,294,214 | 193,476,373 / 192,212,700 / 194,561,688 | FA1 보류, FA2 연도 불일치 | [상세](FEATURE_ABLATION_SM32.md) |
+| SM#33 | FA3/FA4·FA1 seed 점검 | 변수 그룹·seed stability | 109,227,630 / 108,597,670 | 194,980,982 / 195,094,092 | FA3/FA4 기각, FA1 보류 | [상세](FEATURE_ABLATION_SM33.md) |
 | SM#34 | site_code 제외 seed7 | 발전소 ID 제거 | 100,357,213 | 189,522,283 | 유망, 반복검증 주의 | [상세](SITECODE_ABLATION_SM34.md) |
 | SM#35 | site_code 제외 3-seed | 3-seed 평균 | 102,174,517 | 189,211,968 | 조건부 보류 | [상세](SITE_CODE_STABILITY_SM35.md) |
 | SM#37-A | noext Site baseline | 2개 시간순 검증 재생성 | 107,999,596 | 201,164,873 | 기준 예측 | [상세](NOEXT_REPRO_SM37A.md) |
@@ -596,5 +625,6 @@ No training or candidate changes. Re-scored frozen A1-REF, A1-COMP and SM48 B2 a
 | SM#47 | L1 objective pilot | seed7 only; Group frozen | 106,266,107 | 202,920,302 | 2024 악화로 조기 중단 | [보고서](SM47_L1_EXPERIMENT_REPORT.md) |
 | SM#48 B2 | composition-aware Group refit | optimized comp, Group seed100 | 106,740,431‡ | 194,338,244 | 회고·재사용 기간; 공식 미제출 | [보고서](SM48_COMPOSITION_GROUP_REFIT.md) |
 | SM#49 | frozen candidate stress audit | no training or changes | — | — | A1-REF 권고 | [비교](outputs/sm49/FINAL_CANDIDATE_COMPARISON.md) |
+| SM#50 | 예보 불확실성 regime 진단 | 기존 SM45 예측 고정, U tercile 분석 | — | — | 동적 alpha 근거 불충분; 새 후보 없음 | [진단 보고서](SM50_FORECAST_UNCERTAINTY_DIAGNOSTIC.md) · [사전등록](SM50_PREREGISTRATION.md) |
 
 † 해당 값은 오라클·기존 후보 진단이며 새로운 독립 후보 W로 비교하면 안 된다. ‡ 2023 값은 회고적 구성 진단이다. W는 실험별 평가 마스크, 데이터 원천, 모델 구성에 따라 달라 직접적인 단일 순위로 읽지 않는다. 공식 리더보드 S는 로컬 W와 별도 지표다. 외부 데이터 및 holiday 규정 적합성은 각 원본 보고서에서 확인된 범위만 따른다.
