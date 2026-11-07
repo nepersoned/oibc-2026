@@ -586,6 +586,17 @@ Round revision 및 시간별 cloud 변화에서 Group 상대 W가 high uncertain
 - 파일·해시·스키마 감사: [SM51_ARTIFACT_AVAILABILITY_AUDIT.md](SM51_ARTIFACT_AVAILABILITY_AUDIT.md)
 - 다음 실험 사전계획: [SM51_NEXT_EXPERIMENT_PLAN.md](SM51_NEXT_EXPERIMENT_PLAN.md)
 
+## SM#53 — 과거 발전량 기반 오전·오후 profile seed7 파일럿
+
+SM52의 strict OOF 잔차 의존 설계와 달리, 과거 generation 및 clear-sky geometry만으로 같은 날짜·5도 태양고도 구간의 오전/오후 발전 비대칭을 만들었다. 프로필은 예측 target-day보다 4일 이전의 완전한 paired days만 사용하고, validation profile은 학습창 종료 시 고정했다. 2025 제출 학습 기준으로 253개 발전소 모두 30 paired-day 지원을 충족했으나, 2024 검증 기준은 179개·전체용량 63.74%, G2 용량 41.82%였다.
+
+기존 A1 weekday Site seed7 + frozen Group100(alpha=0.2) 대비, 후보 blended W는 2024–25 **198,977,096→199,849,640원(+872,544, +0.439%)**으로 악화했다. Site-only W도 201,309,669→202,375,569원으로 악화했다. G1 W는 390,791원 개선됐지만 G2 W는 1,263,335원, peak W는 958,465원 악화했다. Site MAE는 낮아졌으나 공식 W가 나빠 사전등록에 따라 중단했다. Bootstrap, 2023 candidate, seed21/42, 제출 예측은 미실행이며 새 제출 CSV는 없다.
+
+- 지원 감사: [SM53_COVERAGE_AUDIT.md](SM53_COVERAGE_AUDIT.md)
+- 사전등록: [SM53_PREREGISTRATION.md](SM53_PREREGISTRATION.md)
+- 결과: [SM53_HISTORICAL_PROFILE_REPORT.md](SM53_HISTORICAL_PROFILE_REPORT.md)
+- 예측·입력·코드 manifest 및 월별 점수: `outputs/sm53/pilot_2024.json`, `outputs/sm53/monthly_w_2024.csv`
+
 # SM 전체 실험 결과 요약
 
 | SM ID | 실험 목적 | 기존 대비 변경사항 | 2023~24 W (KRW) | 2024~25 W (KRW) | 최종 판정 | 근거 문서 |
@@ -640,5 +651,6 @@ Round revision 및 시간별 cloud 변화에서 Group 상대 W가 high uncertain
 | SM#50 | 예보 불확실성 regime 진단 | 기존 SM45 예측 고정, U tercile 분석 | — | — | 동적 alpha 근거 불충분; 새 후보 없음 | [진단 보고서](SM50_FORECAST_UNCERTAINTY_DIAGNOSTIC.md) · [사전등록](SM50_PREREGISTRATION.md) |
 | SM#51 | ens_v3 gap/OOF artifact audit | 점수·로컬 자료 범위 감사, 학습 없음 | — | — | ens_v3 예측 NOT AVAILABLE; B형 site solar-shape proxy를 후속 우선순위로 제안 | [우선순위](SM51_RESEARCH_PRIORITIZATION.md) · [계획](SM51_NEXT_EXPERIMENT_PLAN.md) |
 | SM#52 | 역사적 오전·오후 태양 반응 proxy 타당성 | 실적 지원·48h embargo·strict OOF 자료 감사 | — | — | 2023 support 20.89% 용량, strict OOF 없음; Stage 0 중단, 모델 미학습 | [타당성 감사](SM52_FEASIBILITY_AUDIT.md) · [사전등록](SM52_PREREGISTRATION.md) · [결과](SM52_SOLAR_RESPONSE_REPORT.md) |
+| SM#53 | 과거 발전량 AM/PM profile 파일럿 | prediction residual 대신 clear-sky 정규화 관측비대칭; 2024 seed7 | — | 199,849,640 | W +872,544 악화; 기각, bootstrap·추가 seed 미실행 | [결과](SM53_HISTORICAL_PROFILE_REPORT.md) · [사전등록](SM53_PREREGISTRATION.md) |
 
 † 해당 값은 오라클·기존 후보 진단이며 새로운 독립 후보 W로 비교하면 안 된다. ‡ 2023 값은 회고적 구성 진단이다. W는 실험별 평가 마스크, 데이터 원천, 모델 구성에 따라 달라 직접적인 단일 순위로 읽지 않는다. 공식 리더보드 S는 로컬 W와 별도 지표다. 외부 데이터 및 holiday 규정 적합성은 각 원본 보고서에서 확인된 범위만 따른다.

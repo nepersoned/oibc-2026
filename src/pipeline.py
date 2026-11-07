@@ -46,7 +46,8 @@ def load_generation(a: pd.Timestamp, b: pd.Timestamp) -> pd.DataFrame:
 
 def run_rich(gen, sites, pred_a, pred_b, fc_split: str, weight: str, params: dict,
              ext_mode: str = "none", wx_cut: str | None = None,
-             drop_features: list[str] | None = None) -> pd.DataFrame:
+             drop_features: list[str] | None = None,
+             sm53_daily_profile: pd.DataFrame | None = None) -> pd.DataFrame:
     """특징 확장 버전 — 두 라운드를 한 모델에 (17 우선 + 10 보조), 대상일 내 문맥, 전국 요약, 발전소 ID."""
     def load(split):
         fa = F.prep_forecast(F.load_forecast(split, "wa", F.WA_ALL), "wa", F.WA_ALL)
@@ -60,6 +61,9 @@ def run_rich(gen, sites, pred_a, pred_b, fc_split: str, weight: str, params: dic
         raise SystemExit(f"outputs/wx_{wx_cut}_*.parquet 없음 — src/weather_model.py --cutoff {wx_cut} 먼저 실행")
     s = sites.drop(columns=["wa_dist", "wb_dist"], errors="ignore")
     d = F.build_rich(gen[["site_id", "ts", "energy", "smp"]], s, fa, fb, reg, ext, wx)
+    if sm53_daily_profile is not None:
+        from sm53_profile import FEATURE_COLUMNS, add_profile_features
+        d[FEATURE_COLUMNS] = add_profile_features(d, sm53_daily_profile, sites).to_numpy()
     feats = select_rich_features(d, drop_features)
     log(f"학습 행렬 {len(d):,} × {len(feats)}")
     # Keep categorical metadata consistent with the selected model inputs.
@@ -73,6 +77,11 @@ def run_rich(gen, sites, pred_a, pred_b, fc_split: str, weight: str, params: dic
         fa, fb, reg = load("test")
     target = F.grid(sites.site_id, pred_a, pred_b)
     d = F.build_rich(target, s, fa, fb, reg, ext, wx)
+    if sm53_daily_profile is not None:
+        from sm53_profile import FEATURE_COLUMNS, add_profile_features
+        frozen_day = F.target_day(pd.Series([pred_a])).iloc[0] - pd.Timedelta(days=4)
+        d[FEATURE_COLUMNS] = add_profile_features(
+            d, sm53_daily_profile, sites, frozen_profile_day=frozen_day).to_numpy()
     out = target.assign(kwh=M.predict(m, d))
     imp = pd.Series(m.booster_.feature_importance("gain"), index=feats).sort_values(ascending=False)
     log("중요도 상위 15: " + ", ".join(imp.index[:15]))
@@ -102,8 +111,22 @@ def run(train_a, train_b, pred_a, pred_b, fc_split: str, train_years: int,
     gen["smp"] = gen.ts.map(sc.load_smp())          # 학습 구간 과거 SMP (가중치용, 입력 특징 아님)
     log(f"학습 발전량 {len(gen):,}행 ({train_years}년)")
     if fset == "rich":
+        sm53_daily_profile = None
+        sm53_mode = os.environ.get("OIBC_SM53_PROFILE", "0").strip()
+        if sm53_mode not in {"0", "1"}:
+            raise SystemExit("OIBC_SM53_PROFILE must be 0 or 1")
+        if sm53_mode == "1":
+            from sm53_profile import PROFILE_EMBARGO_DAYS, PROFILE_LOOKBACK_DAYS, daily_asymmetry
+            if ext_mode != "none" or F.CAL_MODE != "weekday":
+                raise SystemExit("SM53 pilot requires --ext none and OIBC_CAL_MODE=weekday")
+            history_start = train_a - pd.Timedelta(days=PROFILE_LOOKBACK_DAYS + PROFILE_EMBARGO_DAYS)
+            profile_history = load_generation(history_start, train_b)
+            sm53_daily_profile = daily_asymmetry(profile_history, sites)
+            log(f"SM53 paired profile site-days: {len(sm53_daily_profile):,}")
         return run_rich(gen, sites, pred_a, pred_b, fc_split, weight, params or {}, ext_mode, wx_cut,
-                        drop_features)
+                        drop_features, sm53_daily_profile)
+    if os.environ.get("OIBC_SM53_PROFILE", "0").strip() == "1":
+        raise SystemExit("SM53 profile requires --fset rich")
     if drop_features:
         raise ValueError("--drop-features is supported only with --fset rich")
 

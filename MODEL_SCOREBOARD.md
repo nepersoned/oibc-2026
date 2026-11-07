@@ -30,6 +30,7 @@ S1–S3 상세 및 제출 시각 기준은 [SUBMISSIONS.md](SUBMISSIONS.md) 참�
 | SM#50 | forecast uncertainty regime diagnostic | — | — | — | 진단 완료; 동적 alpha·새 모델 미채택 | [사전등록](SM50_PREREGISTRATION.md); [결과](SM50_FORECAST_UNCERTAINTY_DIAGNOSTIC.md) |
 | SM#51 | leaderboard gap / artifact audit | — | — | — | 준비 단계; ens_v3 OOF 없음, 신규 학습 없음 | [우선순위](SM51_RESEARCH_PRIORITIZATION.md); [아티팩트](SM51_ARTIFACT_AVAILABILITY_AUDIT.md) |
 | SM#52 | historical solar-shape response feasibility | — | — | — | Stage 0 중단; strict OOF 없음·2023 support 부족, 학습 미실행 | [타당성](SM52_FEASIBILITY_AUDIT.md); [사전등록](SM52_PREREGISTRATION.md); [결과](SM52_SOLAR_RESPONSE_REPORT.md) |
+| SM#53 | historical generation AM/PM profile, seed7 | — | 199,849,640 | — | 연구용; fixed 20% Group blend worsened by 872,544, not adopted; no submission | [사전등록](SM53_PREREGISTRATION.md); [결과](SM53_HISTORICAL_PROFILE_REPORT.md); `outputs/sm53/pilot_2024.json` |
 
 ## 3. 파일 무결성
 
