@@ -639,5 +639,6 @@ Round revision 및 시간별 cloud 변화에서 Group 상대 W가 high uncertain
 | SM#49 | frozen candidate stress audit | no training or changes | — | — | A1-REF 권고 | [비교](outputs/sm49/FINAL_CANDIDATE_COMPARISON.md) |
 | SM#50 | 예보 불확실성 regime 진단 | 기존 SM45 예측 고정, U tercile 분석 | — | — | 동적 alpha 근거 불충분; 새 후보 없음 | [진단 보고서](SM50_FORECAST_UNCERTAINTY_DIAGNOSTIC.md) · [사전등록](SM50_PREREGISTRATION.md) |
 | SM#51 | ens_v3 gap/OOF artifact audit | 점수·로컬 자료 범위 감사, 학습 없음 | — | — | ens_v3 예측 NOT AVAILABLE; B형 site solar-shape proxy를 후속 우선순위로 제안 | [우선순위](SM51_RESEARCH_PRIORITIZATION.md) · [계획](SM51_NEXT_EXPERIMENT_PLAN.md) |
+| SM#52 | 역사적 오전·오후 태양 반응 proxy 타당성 | 실적 지원·48h embargo·strict OOF 자료 감사 | — | — | 2023 support 20.89% 용량, strict OOF 없음; Stage 0 중단, 모델 미학습 | [타당성 감사](SM52_FEASIBILITY_AUDIT.md) · [사전등록](SM52_PREREGISTRATION.md) · [결과](SM52_SOLAR_RESPONSE_REPORT.md) |
 
 † 해당 값은 오라클·기존 후보 진단이며 새로운 독립 후보 W로 비교하면 안 된다. ‡ 2023 값은 회고적 구성 진단이다. W는 실험별 평가 마스크, 데이터 원천, 모델 구성에 따라 달라 직접적인 단일 순위로 읽지 않는다. 공식 리더보드 S는 로컬 W와 별도 지표다. 외부 데이터 및 holiday 규정 적합성은 각 원본 보고서에서 확인된 범위만 따른다.

@@ -29,6 +29,7 @@ S1–S3 상세 및 제출 시각 기준은 [SUBMISSIONS.md](SUBMISSIONS.md) 참�
 | SM#49 | candidate stress test, no training | — | — | — | A1-REF 권고, 감사 | [비교](outputs/sm49/FINAL_CANDIDATE_COMPARISON.md); [선정](outputs/sm49/FINAL_SELECTION_RECOMMENDATION.md) |
 | SM#50 | forecast uncertainty regime diagnostic | — | — | — | 진단 완료; 동적 alpha·새 모델 미채택 | [사전등록](SM50_PREREGISTRATION.md); [결과](SM50_FORECAST_UNCERTAINTY_DIAGNOSTIC.md) |
 | SM#51 | leaderboard gap / artifact audit | — | — | — | 준비 단계; ens_v3 OOF 없음, 신규 학습 없음 | [우선순위](SM51_RESEARCH_PRIORITIZATION.md); [아티팩트](SM51_ARTIFACT_AVAILABILITY_AUDIT.md) |
+| SM#52 | historical solar-shape response feasibility | — | — | — | Stage 0 중단; strict OOF 없음·2023 support 부족, 학습 미실행 | [타당성](SM52_FEASIBILITY_AUDIT.md); [사전등록](SM52_PREREGISTRATION.md); [결과](SM52_SOLAR_RESPONSE_REPORT.md) |
 
 ## 3. 파일 무결성
 

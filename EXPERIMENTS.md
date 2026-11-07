@@ -111,6 +111,7 @@
 
 | SM#50 | Forecast uncertainty regime diagnostics for frozen Site/Group forecasts | — | — | 진단 완료; 동적 alpha 근거 불충분, 성능개선 주장 없음 | [사전등록](SM50_PREREGISTRATION.md) · [진단](SM50_FORECAST_UNCERTAINTY_DIAGNOSTIC.md) |
 | SM#51 | ens_v3 격차 자료감사와 후속연구 우선순위 | — | — | 준비 완료; ens_v3 OOF 미확보, 학습 미실행 | [우선순위](SM51_RESEARCH_PRIORITIZATION.md) · [아티팩트 감사](SM51_ARTIFACT_AVAILABILITY_AUDIT.md) |
+| SM#52 | Historical solar-shape response feasibility | — | — | Stage 0 중단; 지원·strict OOF gate 미충족, W 실험 미실행 | [타당성 감사](SM52_FEASIBILITY_AUDIT.md) · [사전등록](SM52_PREREGISTRATION.md) · [결과](SM52_SOLAR_RESPONSE_REPORT.md) |
 
 ## 제출
 
