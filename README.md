@@ -4,7 +4,13 @@
 
 ---
 
-## 🏁 현재 상황 (2026-11-04 밤)
+## 2026-11-07 공식 점수 갱신
+
+사용자가 공식 포털에서 확인한 최신 제출 S4 `SM46 A1-REF` 점수는 **6,448,069,881**이다. 팀 공식 최고는 S2 `ens_v3`의 **6,459,800,168**로 유지되며, S4는 팀 최고보다 11,730,287점 낮다. S4는 weekday-only 달력과 대회 제공 기상만 사용하고 로컬 Validator exit 0을 통과했다. 제출 시각과 순위는 확인되지 않았다.
+
+모델별 공식 점수, 로컬 W, 후보 상태 및 파일 해시는 [MODEL_SCOREBOARD.md](MODEL_SCOREBOARD.md)에서 확인한다. 실험 기록은 [EXPERIMENTS.md](EXPERIMENTS.md), [SEONGMIN_EXPERIMENTS.md](SEONGMIN_EXPERIMENTS.md), 제출 기록은 [SUBMISSIONS.md](SUBMISSIONS.md)를 참고한다.
+
+## 🏁 이전 현황 스냅샷 (2026-11-04 밤)
 
 | 항목 | 값 |
 | --- | --- |
@@ -81,6 +87,13 @@ uv pip install --python .venv/Scripts/python.exe -r requirements.txt
 | [`src/scoring.py`](src/scoring.py) | 로컬 정산금 S (리더보드와 오차 2%) |
 | [`src/validate_submission.py`](src/validate_submission.py) | 공식 제출 형식 검사기 |
 | `src/analyze_*.py`, `src/inspect_data.py` | 오라클·잔차·시차 분석 (집계값만 출력) |
+
+### 연구 기록 바로가기
+
+- [모델 점수 대시보드](MODEL_SCOREBOARD.md)
+- [통합 실험 로그](EXPERIMENTS.md)
+- [오성민 상세 실험 기록](SEONGMIN_EXPERIMENTS.md)
+- [공식 제출 기록](SUBMISSIONS.md)
 
 > 📒 **전체 실험 로그: [EXPERIMENTS.md](EXPERIMENTS.md)** (`JH#1` ~ `JH#35`, 실험별 점수·판정) · 제출 기록: [SUBMISSIONS.md](SUBMISSIONS.md)
 

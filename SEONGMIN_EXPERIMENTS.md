@@ -515,3 +515,86 @@ SM#39의 시간순 선택 alpha=0.2를 고정하고 제출기간 전체 site Lig
 | 제출 validator | exit 0 |
 
 그룹 타깃은 G1 17,544, G2 11,649행, 평균 관측용량 커버리지는 86.53%/80.64%였다. reference 구성 고정 용량은 G1/G2 20,465.655/22,189.715kW다. 고정용량 추론과 관측용량 CF 타깃 분모 차이는 유지되므로 제출기간 성능을 주장하지 않는다. 최종 후보는 `submissions/composition_sm40_noext_ensemble.csv`, `submissions/forecast_sm40_noext_ensemble.csv`; 데이터·CSV는 Git 제외. 상세 설정, SHA256, alpha 등식, 예보 cutoff 및 GFS 테스트 실패 원인은 `NOEXT_ENSEMBLE_SUBMISSION_SM40.md`와 로컬 `outputs/sm40/submission_manifest.json`에 기록했다. 포털에는 업로드하지 않았다.
+
+
+## SM#41 — Literature-guided feature construction and selection
+
+The study reviewed competition methods and solar forecasting literature, audited existing OIBC features, and tested physics/forecast-derived feature families against settlement W. Its central comparison was the existing SM#40 Site seed7 + Group baseline against Site 3-seed + Group and F2 cloud-adjusted solar proxies.
+
+| Candidate | 2023–24 W | 2024–25 W | Decision |
+|---|---:|---:|---|
+| SM#40 Site7 + Group | 107,551,309 | 198,736,384 | Reference for this study |
+| SM#41 Site3 + Group | 106,754,876 | 197,534,279 | Retained; seed ensemble helped both periods |
+| F2 Site3 + Group | 107,065,240 | 196,872,227 | Not selected; 2023 worsened, direction inconsistent |
+
+F1 extraterrestrial irradiance had no demonstrated incremental W value. F2 improved 2024 but worsened 2023. The report records other proposed families and screening limits. These were local W experiments, not official scores. See [feature selection](FEATURE_SELECTION_SM41.md), [candidate registry](FEATURE_CANDIDATE_REGISTRY_SM41.csv), and [final comparison](FINAL_MODEL_COMPARISON_SM41.md).
+
+## SM#42 — Official baseline reproduction and F3 feature test
+
+The official package/code provenance and JH#1 reproduction were audited; both validation windows were actually executed and rescored. The reproduced baseline was 123,998,096 KRW in 2023–24 and 224,547,460 KRW in 2024–25. This is distinct from the original supplied-code result where the source/configuration differed slightly. The F3 3-seed model added forecast revision/disagreement features and scored 106,949,376 / 196,517,774 KRW; its uncertainty interval did not establish a stable gain, so it was not adopted. Details: [baseline reproduction](SM42_OFFICIAL_BASELINE_REPRODUCTION.md), [feature selection](SM42_FEATURE_SELECTION.md).
+
+## SM#43 — Group multi-seed bagging
+
+With Site3 fixed, Group seed100 was expanded to seeds100–104. W was 106,739,743 / 197,493,336 KRW. The point estimates were slightly below SM#41, but paired bootstrap uncertainty included zero; SM#41 remained the candidate. See [SM43 report](SM43_GROUP_BAGGING_REPORT.md).
+
+## SM#44 — Group target coverage and training reliability
+
+Coverage, CF labels and site representation were audited. The preregistered support gate rejected G1/G2 candidate fits before training: for the 2023 window G2 had zero eligible labels even at `min_cov=0.1`; at `min_cov=0.3`, G2 had 2,889 labels in the 2024 window. No G1/G2 candidate W was produced and no target formula was changed. See [SM44 report](SM44_GROUP_TARGET_COVERAGE.md).
+
+## SM#45 — Calendar-safe models and fixed composition study
+
+Added `legacy|weekday|none` calendar modes; A1 `weekday` used only timestamp-derived weekday/weekend. A1 Site3+Group scored 106,673,757 / 197,526,260 KRW. A fixed 10-site composition gave Site-only W 107,077,100 / 196,397,961 KRW and improved the reused Dec–May holdout, but the full multi-year and preregistered adoption criteria did not support promotion. No submission candidate was created in this run. See [preregistration](SM45_PREREGISTRATION.md) and [report](SM45_FINAL_REPORT.md).
+
+## SM#46 — Calendar-safe submission candidates
+
+Generated two separate candidate pairs from provided data, weekday calendar and no external weather/holidays. A1-REF was Site3 + Group seed100 (80/20, reference composition); A1-COMP was Site-only on the fixed SM45 composition. Both validators returned exit 0. Historical W: A1-REF 106,673,757 / 197,526,260; A1-COMP 107,077,100 / 196,397,961. A1-REF was later submitted as S4 and scored 6,448,069,881 on the official portal (user-confirmed 2026-11-07; exact time/rank not supplied). See [audit](SM46_SUBMISSION_AUDIT.md).
+
+## SM#47 — Calendar-safe L1 vs L2 pilot
+
+Changed only Site seed7 objective for the pilot, reusing the same Group seed100 and alpha=0.2. L1 scored 106,266,107 in 2023–24 but 202,920,302 in 2024–25 (worse by 3,943,206 than its matched L2 control); the preregistered sequential stop rule halted further seed training. No SM47 candidate was made. See [report](SM47_L1_EXPERIMENT_REPORT.md).
+
+## SM#48 — Composition-aware Group refit
+
+Refit Group seed100 for the fixed SM45 composition while reusing Site3. B2 W was 106,740,431 in 2023 (retrospective) and 194,338,244 in 2024. On the reused Dec–May window B2 beat same-composition Site-only B1 by 611,665 at the point estimate, but the paired interval crossed zero and two of six months worsened. B2 was not officially submitted; SM46 A1-REF remained the default. See [preregistration](SM48_PREREGISTRATION.md) and [report](SM48_COMPOSITION_GROUP_REFIT.md).
+
+## SM#49 — Final candidate stress test
+
+No training or candidate changes. Re-scored frozen A1-REF, A1-COMP and SM48 B2 artifacts under common observed-site masks and verified all three CSV pairs with local validator exit 0. A1-REF was recommended under the conservative pre-registered choice rule; no portal action occurred in SM49. Reports are in [`outputs/sm49/`](outputs/sm49/FINAL_CANDIDATE_COMPARISON.md), [`submission readiness`](outputs/sm49/SUBMISSION_READINESS_AUDIT.md), and [`forecast audit`](outputs/sm49/FORECAST_DISTRIBUTION_AUDIT.md).
+
+# SM 전체 실험 결과 요약
+
+| SM ID | 실험 목적 | 기존 대비 변경사항 | 2023~24 W (KRW) | 2024~25 W (KRW) | 최종 판정 | 근거 문서 |
+|---|---|---|---:|---:|---|---|
+| SM#3 | 데이터 배치·실행 점검 | baseline 전 실행환경 확인 | — | — | 검증 전 중단 | [상세](#sm3--데이터-배치-및-기준-모델-실행-점검-미검증) |
+| SM#4 | JH#1 재현 | 기존 baseline 코드 재실행 | 123,997,939 | 224,680,215 | 재현 차이 기록 | [상세](#sm4--기존-공식-기준-모델-재현) |
+| SM#5 | 오라클 진단 | 일 총량/시간 형태 분해 | — | 106,954,402† | 진단 전용 | [상세](#sm5--총량형태-오라클-진단-전용) |
+| SM#6 | 잔차 기반 구성 | 시간순 잔차 이동 | — | 224,433,733 | 약한 개선, 미채택 | [상세](#sm6--잔차-커버리지와-시간순-그룹-구성) |
+| SM#7–10 | 데이터·입력·기준 감사 | 소스, 결측, float32 재현 | 123,997,939 (SM10) | 224,547,460 (SM10) | SM10 재현 기준 확정 | [상세 기록](#sm7--외부-데이터-및-누락-처리-점검) |
+| SM#11 | 일사량 일별 보정 | 사전등록 보정 실험 | — | — | 개선 입증 안 됨 | [상세](#sm11--일사량-기반-일별-보정-사전-등록-2026-11-06) |
+| SM#12 | 직접 예보 일사 | 새 일사 입력 | 108,446,840 | 205,509,986 | 안정성 미달 | [상세](#sm12-실제-결과--직접-예보-입력-연구-전용미채택) |
+| SM#13–21 | NOAA 환경·예보·평가 도구 | 데이터 복원·진단 및 누수 방지 | — | — | 준비·도구 실험, 개별 판정은 상세 기록 | [상세](#sm13--noaa-grib-환경변환-점검) |
+| SM#22–25 | GFS 공간피처 개발 | 구현·표본·파일럿 | — | — | W 학습 미실행/부분 수집 중단 | [상세](#sm22--research-a-공간-피처-생성기-및-데이터-가용성-점검) |
+| SM#26 | GFS 공간 A0/A1/A2 | 공간 분포 피처 | 103,359,256 / 104,225,520 / 103,063,553 | 191,784,853 / 190,858,619 / 190,033,416 | A2 CI 0 포함, 보류 | [상세](#sm26--전체-공간-gfs와-a0a1a2-실제-w-비교) |
+| SM#27 | Group A2 coverage | 그룹 타깃 커버리지 보정 | 112,839,689 → 106,557,372 | 188,492,339 → 190,071,616 | 연도 불일치 | [상세](#sm27--그룹-모델-a2-결과-검증) |
+| SM#28 | GFS/clear-sky 비율 | 물리비율 피처 | 102,903,673 | 195,461,109 | 연도 불일치 | [상세](#sm28--b1-청천일사-대비-gfs-일사-비율) |
+| SM#29 | Open-Meteo 제거 | GFS-only C1 | — | 192,371,210 | +0.306%, 보류 | [상세](#sm29--open-meteo-제거-c1-실행) |
+| SM#30 | GFS-only 연도 비교 | C1/C2 | 103,359,256 / 107,043,192 / 105,070,918 | 191,784,853 / 192,371,210 / 192,545,733 | 안정 개선 없음 | [상세](#sm30--open-meteo-제거-연도별-c1c2-재평가) |
+| SM#31–33 | Feature audit/ablation | 피처 제거·seed 확인 | 서로 다른 후보; 상세 보고서 참조 | 서로 다른 후보; 상세 보고서 참조 | 안정적 증분 미입증 | [SM32](FEATURE_ABLATION_SM32.md), [SM33](FEATURE_ABLATION_SM33.md) |
+| SM#34 | site_code 제외 seed7 | 발전소 ID 제거 | 100,357,213 | 189,522,283 | 유망, 반복검증 주의 | [상세](SITECODE_ABLATION_SM34.md) |
+| SM#35 | site_code 제외 3-seed | 3-seed 평균 | 102,174,517 | 189,211,968 | 조건부 보류 | [상세](SITE_CODE_STABILITY_SM35.md) |
+| SM#37-A | noext Site baseline | 2개 시간순 검증 재생성 | 107,999,596 | 201,164,873 | 기준 예측 | [상세](NOEXT_REPRO_SM37A.md) |
+| SM#37-B | 제한적 composition 진단 | 51-site 이동 | — | 200,920,003 | bootstrap 0 포함, 보류 | [상세](COMPOSITION_C1_DIAGNOSTIC_SM37B.md) |
+| SM#39 | Site+Group noext | alpha .2, Group 직접 CF | 107,551,309 | 198,736,384 | G2 label gap 주의 | [상세](GROUP_NOEXT_INTEGRATION_SM39.md) |
+| SM#40 | 제출기간 noext 예측 | Site + Group | — | 198,736,384† | 제출 후보, 후속 SM46 대체 | [상세](NOEXT_ENSEMBLE_SUBMISSION_SM40.md) |
+| SM#41 | Literature feature selection | Site3 + Group1; F2 tested | 106,754,876 | 197,534,279 | baseline retained; F2 inconsistent | [보고서](FINAL_MODEL_COMPARISON_SM41.md) |
+| SM#42 F3 | Revision/disagreement feature | Site3 + Group1 | 106,949,376 | 196,517,774 | CI 불확실, 미채택 | [보고서](SM42_FEATURE_SELECTION.md) |
+| SM#43 | Group bagging | Group seeds100–104 | 106,739,743 | 197,493,336 | bootstrap CI 0 포함 | [보고서](SM43_GROUP_BAGGING_REPORT.md) |
+| SM#44 | Group coverage reliability | G1/G2 coverage gate | — | — | 후보 학습 미실행 | [보고서](SM44_GROUP_TARGET_COVERAGE.md) |
+| SM#45 A1 | Weekday-only calendar-safe | Site3 + Group1, ref | 106,673,757 | 197,526,260 | 개선 증거 불충분 | [보고서](SM45_FINAL_REPORT.md) |
+| SM#46 A1-REF | 제출용 weekday reference | Site3 + Group1, ref | 106,673,757 | 197,526,260 | S4 제출; official S 6,448,069,881 | [감사](SM46_SUBMISSION_AUDIT.md) |
+| SM#46 A1-COMP | Site-only optimized portfolio | fixed 10-site move | 107,077,100 | 196,397,961 | 공식 미제출 | [감사](SM46_SUBMISSION_AUDIT.md) |
+| SM#47 | L1 objective pilot | seed7 only; Group frozen | 106,266,107 | 202,920,302 | 2024 악화로 조기 중단 | [보고서](SM47_L1_EXPERIMENT_REPORT.md) |
+| SM#48 B2 | composition-aware Group refit | optimized comp, Group seed100 | 106,740,431‡ | 194,338,244 | 회고·재사용 기간; 공식 미제출 | [보고서](SM48_COMPOSITION_GROUP_REFIT.md) |
+| SM#49 | frozen candidate stress audit | no training or changes | — | — | A1-REF 권고 | [비교](outputs/sm49/FINAL_CANDIDATE_COMPARISON.md) |
+
+† 해당 값은 오라클·기존 후보 진단이며 새로운 독립 후보 W로 비교하면 안 된다. ‡ 2023 값은 회고적 구성 진단이다. W는 실험별 평가 마스크, 데이터 원천, 모델 구성에 따라 달라 직접적인 단일 순위로 읽지 않는다. 공식 리더보드 S는 로컬 W와 별도 지표다. 외부 데이터 및 holiday 규정 적합성은 각 원본 보고서에서 확인된 범위만 따른다.

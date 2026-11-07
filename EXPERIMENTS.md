@@ -55,6 +55,60 @@
 | JH#34 | **발전소 모델 + LDAPS** (D-1 00z, 전체·직달·산란) | 182,091,639 / 96,859,840 | **−2.4% / −4.0%** | ✅ |
 | JH#35 | 앙상블 발전소(GFS+LDAPS) 50 + 그룹(GFS+LDAPS) 50, `ens_v4` 구성 → **`ens_v5`** (LDAPS 없는 2026-04-02~ 는 발전소·그룹 모두 GFS 모델로 대체) | 172,800,313 (2024) · 참조구성 95,250,073 (2023) | −23.0% / −23.2% | ✅ S3 후보 |
 
+### 오성민(SM) 실험 통합 요약
+
+| ID | 실험·가설 | 2023~24 W | 2024~25 W | 판정 | 상세 기록 |
+|---|---|---:|---:|---|---|
+| SM#3 | 데이터 배치·실행 점검 | — | — | 학습 전 중단 | [로그](SEONGMIN_EXPERIMENTS.md#sm3--데이터-배치-및-기준-모델-실행-점검-미검증) |
+| SM#4 | 공식 JH#1 재현, float/dtype 차이 감사 | 123,997,939 | 224,680,215 | 기준 재현, 2024 소폭 차이 | [로그](SEONGMIN_EXPERIMENTS.md#sm4--기존-공식-기준-모델-재현) |
+| SM#5 | 총량·형태 오라클 진단 | — | 106,954,402† | 진단 전용 | [로그](SEONGMIN_EXPERIMENTS.md#sm5--총량형태-오라클-진단-전용) |
+| SM#6 | 잔차 기반 구성 이동 | — | 224,433,733 | 약한 개선, 미채택 | [로그](SEONGMIN_EXPERIMENTS.md#sm6--잔차-커버리지와-시간순-그룹-구성) |
+| SM#7 | 외부 입력·결측 처리 감사 | — | — | 감사 | [로그](SEONGMIN_EXPERIMENTS.md#sm7--외부-데이터-및-누락-처리-점검) |
+| SM#8 | JMA 예보와 발전 잔차 관계 | — | — | 진단 | [로그](SEONGMIN_EXPERIMENTS.md#sm8--jma-예보와-발전량-잔차의-기술적-연관) |
+| SM#9 | Open-Meteo GFS 예보·잔차 관계 | — | — | 진단 | [로그](SEONGMIN_EXPERIMENTS.md#sm9--open-meteo-gfs-예보-수준과-발전량-잔차) |
+| SM#10 | float32 기준 재현 | 123,997,939 | 224,547,460 | 재현 일치 기준 | [로그](SEONGMIN_EXPERIMENTS.md#sm10--최초-기준-코드의-float32-처리-재현) |
+| SM#11 | 일사량 일별 보정 | — | — | 개선 미입증 | [로그](SEONGMIN_EXPERIMENTS.md#sm11--일사량-기반-일별-보정-사전-등록-2026-11-06) |
+| SM#12 | 직접 일사 입력 실험 | 108,446,840 | 205,509,986 | 월별 안정성 미달, 미채택 | [로그](SEONGMIN_EXPERIMENTS.md#sm12-실제-결과--직접-예보-입력-연구-전용미채택) |
+| SM#13 | NOAA GRIB 환경·변환 점검 | — | — | 환경 준비 | [로그](SEONGMIN_EXPERIMENTS.md#sm13--noaa-grib-환경변환-점검) |
+| SM#14 | 입력 정밀도·시드 재현 | — | — | 사전등록·재현 진단 | [로그](SEONGMIN_EXPERIMENTS.md#sm14--입력-정밀도시드-재현-사전-등록) |
+| SM#15 | 시간순 E 앙상블 도구 | — | — | 도구 점검 | [로그](SEONGMIN_EXPERIMENTS.md#sm15--기본-모델--e-시간순-앙상블-도구-점검-사전-등록) |
+| SM#16 | 2025-03 오차 구조 | — | — | 진단 | [로그](SEONGMIN_EXPERIMENTS.md#sm16--2025년-3월-오차-구조-진단) |
+| SM#17 | LB 역산·평가 도구 | — | — | 도구·해석 | [로그](SEONGMIN_EXPERIMENTS.md#sm17--리더보드-역산과-평가-도구) |
+| SM#18 | NOAA 표본 디코딩·복원 | — | — | 자료 파이프라인 | [로그](SEONGMIN_EXPERIMENTS.md#sm18--noaa-표본-디코딩-및-전체-복원-시작) |
+| SM#19 | NOAA 인덱스 불일치 복구 | — | — | 데이터 처리 수정 | [로그](SEONGMIN_EXPERIMENTS.md#sm19--2022-11-30-noaa-인덱스-불일치-복구) |
+| SM#20 | NOAA 부분 복원 기준 모델 | — | — | 부분 자료·비채택 | [로그](SEONGMIN_EXPERIMENTS.md#sm20--noaa-부분-복원-기준-모델-사전-등록) |
+| SM#21 | 학습 입력기간 오류 차단 | — | — | 누수 방지 | [로그](SEONGMIN_EXPERIMENTS.md#sm21--2023-모델-입력-기간-오류-차단) |
+| SM#22 | GFS 공간피처 구현·가용성 | — | — | 구현, 전체 W 미실행 | [로그](SEONGMIN_EXPERIMENTS.md#sm22--research-a-공간-피처-생성기-및-데이터-가용성-점검) |
+| SM#23 | GFS 공간 표본 연결 | — | — | ecCodes 차단 | [로그](SEONGMIN_EXPERIMENTS.md#sm23--noaa-gfs-공간-표본-연결-시도) |
+| SM#24 | GFS 공간 표본 검증 | — | — | 데이터 검증, 미학습 | [로그](SEONGMIN_EXPERIMENTS.md#sm24--실제-noaa-gfs-공간-격자-표본-검증) |
+| SM#25 | GFS 공간 시계열 파일럿 | — | — | 부분 수집 후 중단 | [로그](SEONGMIN_EXPERIMENTS.md#sm25--파일럿-시계열-및-전체-수집-중단) |
+| SM#26 | GFS 공간 A0/A1/A2 | 103,359,256 / 104,225,520 / 103,063,553 | 191,784,853 / 190,858,619 / 190,033,416 | A2 점추정 개선, CI 포함 0·보류 | [로그](SEONGMIN_EXPERIMENTS.md#sm26--전체-공간-gfs와-a0a1a2-실제-w-비교) |
+| SM#27 | 그룹 A2 coverage 보정 | 112,839,689 → 106,557,372 | 188,492,339 → 190,071,616 | 연도 방향 불일치 | [로그](SEONGMIN_EXPERIMENTS.md#sm27--그룹-모델-a2-결과-검증) |
+| SM#28 | 청천일사 대비 GFS 비율 | 102,903,673 | 195,461,109 | 연도 불일치·보류 | [로그](SEONGMIN_EXPERIMENTS.md#sm28--b1-청천일사-대비-gfs-일사-비율) |
+| SM#29 | Open-Meteo 제거, GFS-only | — | 192,371,210 | +0.306%, 보류 | [로그](SEONGMIN_EXPERIMENTS.md#sm29--open-meteo-제거-c1-실행) |
+| SM#30 | GFS-only C1/C2 연도별 | 103,359,256 / 107,043,192 / 105,070,918 | 191,784,853 / 192,371,210 / 192,545,733 | 안정 개선 없음 | [로그](SEONGMIN_EXPERIMENTS.md#sm30--open-meteo-제거-연도별-c1c2-재평가) |
+| SM#31 | C1 입력 피처 감사 | — | — | 진단 전용 | [로그](SEONGMIN_EXPERIMENTS.md#sm31--c1-실제-입력-105개-feature-audit) |
+| SM#32 | FA1/FA2 피처 제거 | 110,008,344 / 109,343,198 / 108,294,214 | 193,476,373 / 192,212,700 / 194,561,688 | FA1 보류, FA2 불안정 | [로그](SEONGMIN_EXPERIMENTS.md#sm32--fa1fa2-실제-lightgbm-피처-제거) |
+| SM#33 | FA3/FA4·FA1 다중 시드 | 109,227,630 / 108,597,670 | 194,980,982 / 195,094,092 | FA3/FA4 기각, FA1 보류 | [로그](SEONGMIN_EXPERIMENTS.md#sm33--fa3fa4-및-fa1-다중-시드) |
+| SM#34 | site_code 제거 seed7 | 100,357,213 | 189,522,283 | 유망, 반복 검증 한계 | [로그](SEONGMIN_EXPERIMENTS.md#sm34--site_code-제거-일반화-실험) |
+| SM#35 | site_code 3-seed 안정성 | 102,174,517 | 189,211,968 | 조건부 유망·보류 | [로그](SEONGMIN_EXPERIMENTS.md#sm35--site_code-제거-다중-시드-안정성) |
+| SM#37-A | noext Site 재생성 | 107,999,596 | 201,164,873 | 기준 산출 | [로그](SEONGMIN_EXPERIMENTS.md#sm37-a--noext-발전소별-예측-2개-연도-재생성) |
+| SM#37-B | Site composition 연구 | — | 200,920,003 | 개선 작고 CI가 0 포함·보류 | [구성 보고서](COMPOSITION_C1_DIAGNOSTIC_SM37B.md) |
+| SM#39 | noext Site+Group alpha .2 | 107,551,309 | 198,736,384 | 평가 진단, G2 라벨 부족 | [로그](SEONGMIN_EXPERIMENTS.md#sm39--noext-그룹-직접-예측--발전소-예측-통합) |
+| SM#40 | Noext 제출 후보 | — | 198,736,384 | 제출 후보 생성, 후속 대체 | [로그](SEONGMIN_EXPERIMENTS.md#sm40--noext-그룹사이트-제출-후보) |
+| SM#41 | Literature feature selection, Site3+Group | 106,754,876 | 197,534,279 | F2 방향 불일치, 기준 유지 | [보고서](FINAL_MODEL_COMPARISON_SM41.md) |
+| SM#42 F3 | cloud revision/disagreement, Site3+Group | 106,949,376 | 196,517,774 | bootstrap 불확실, 미채택 | [보고서](SM42_FEATURE_SELECTION.md) |
+| SM#43 | Group seed100–104 bagging | 106,739,743 | 197,493,336 | CI 포함 0, SM41 유지 | [보고서](SM43_GROUP_BAGGING_REPORT.md) |
+| SM#44 | Group label coverage gate | — | — | G1/G2 지원 기준 미달, 후보 fit 미실행 | [보고서](SM44_GROUP_TARGET_COVERAGE.md) |
+| SM#45 A1 | Weekday calendar Site3+Group | 106,673,757 | 197,526,260 | 달력 안전 경로, 후보 우위 미입증 | [보고서](SM45_FINAL_REPORT.md) |
+| SM#46 A1-REF | A1-REF 제출 재현·검증 | 106,673,757 | 197,526,260 | 제출 S4; 공식 S 6,448,069,881 | [감사](SM46_SUBMISSION_AUDIT.md) |
+| SM#46 A1-COMP | Site-only optimized composition | 107,077,100 | 196,397,961 | 로컬 검증, 공식 미제출 | [감사](SM46_SUBMISSION_AUDIT.md) |
+| SM#47 | L1 seed7 + frozen Group | 106,266,107 | 202,920,302 | 2024 악화, 조기 중단 | [보고서](SM47_L1_EXPERIMENT_REPORT.md) |
+| SM#48 B2 | Fixed composition + Group refit | 106,740,431§ | 194,338,244 | 회고/재사용 기간, 공식 미제출 | [보고서](SM48_COMPOSITION_GROUP_REFIT.md) |
+| SM#49 | Candidate stress test; no training | — | — | A1-REF 권고, 세 파일 검증 재확인 | [비교](outputs/sm49/FINAL_CANDIDATE_COMPARISON.md) · [선정](outputs/sm49/FINAL_SELECTION_RECOMMENDATION.md) |
+
+† SM#5 oracle diagnostic score is not a deployable model score. ‡ SM#37-B composition uses the contemporaneous Site-only path; check its report’s exact comparison window before comparing to later SMs. § SM#48 2023 value is retrospective because composition was selected using 2024 observations. SM#42 F3, SM#47 seed7 and other single-seed entries are not directly comparable to three-seed candidates. All W are local KRW penalties, not leaderboard scores; external-source setups differ across historical rows.
+
 ## 제출
 
 | 제출 | 날짜 | 실험 | 파일 | 로컬 | 리더보드 |
