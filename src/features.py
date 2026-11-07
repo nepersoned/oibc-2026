@@ -125,7 +125,11 @@ def region_means(fa: pd.DataFrame, fb: pd.DataFrame) -> pd.DataFrame:
 EXT_MODELS = ["ecmwf_ifs025", "jma_seamless", "gfs_seamless"]
 EXT_MODELS_2024 = ["icon_seamless", "gem_seamless", "meteofrance_seamless", "cma_grapes_global", "bom_access_global"]
 USE_2024 = os.environ.get("OIBC_EXT2024", "0") == "1"      # 실험 스위치
-CALENDAR = os.environ.get("OIBC_CAL", "1") == "1"         # 요일·공휴일 특징
+_CALENDAR_DEFAULT = "legacy" if os.environ.get("OIBC_CAL", "1") == "1" else "none"
+CAL_MODE = os.environ.get("OIBC_CAL_MODE", _CALENDAR_DEFAULT).strip().lower()
+if CAL_MODE not in {"legacy", "weekday", "none"}:
+    raise ValueError("OIBC_CAL_MODE must be one of: legacy, weekday, none")
+CALENDAR = CAL_MODE != "none"                               # backward-compatible presence flag
 USE_GFS = os.environ.get("OIBC_GFS", "1") == "1"          # NOAA GFS 원본 상자 평균
 USE_GEFS = os.environ.get("OIBC_GEFS", "1") == "1"        # NOAA GEFS 평균·퍼짐
 USE_UM = os.environ.get("OIBC_UM", "1") == "1"            # 기상청 UM 국지(LDAPS)
@@ -280,8 +284,8 @@ def build_rich(base: pd.DataFrame, sites: pd.DataFrame, fa: pd.DataFrame, fb: pd
     d["hour"] = ts.hour.to_numpy().astype("int8")
     d["cap"] = d.capacity_kw.astype("float32")
     d["site_code"] = d.site_id.str[2:].astype("int16")
-    if CALENDAR:
-        cal = calendar(d.ts)
+    if CAL_MODE != "none":
+        cal = calendar(d.ts, CAL_MODE)
         for c in cal.columns:
             d[c] = cal[c].to_numpy()
     return d
@@ -306,13 +310,26 @@ def off_days() -> set:
 _OFF = None
 
 
-def calendar(ts: pd.Series) -> pd.DataFrame:
-    """대상일 기준 요일·주말·공휴일 (출력제어는 수요가 적은 휴일 낮에 몰림)."""
+def calendar(ts: pd.Series, mode: str | None = None) -> pd.DataFrame:
+    """Calendar features keyed by right-closed target day.
+
+    `weekday` and `none` never consult the external holiday package or EXTRA_OFF.
+    """
     global _OFF
+    mode = (mode or CAL_MODE).strip().lower()
+    if mode not in {"legacy", "weekday", "none"}:
+        raise ValueError("calendar mode must be one of: legacy, weekday, none")
+    source = pd.Series(ts)
+    day = target_day(source).dt.tz_localize(None)
+    dow = day.dt.dayofweek
+    if mode == "none":
+        return pd.DataFrame(index=source.index)
+    if mode == "weekday":
+        return pd.DataFrame({"dow": dow.astype("int8").to_numpy(),
+                             "is_weekend": (dow >= 5).astype("int8").to_numpy()},
+                            index=source.index)
     if _OFF is None:
         _OFF = off_days()
-    day = target_day(pd.Series(ts)).dt.tz_localize(None)
-    dow = day.dt.dayofweek
     hol = day.isin(_OFF)
     off = (dow >= 5) | hol
     prev_off = (day - pd.Timedelta(days=1)).isin(_OFF) | ((day - pd.Timedelta(days=1)).dt.dayofweek >= 5)

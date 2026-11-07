@@ -62,17 +62,23 @@ def objective(x: np.ndarray, R: np.ndarray, w: np.ndarray) -> float:
     return float((w * (np.abs(e1) + np.abs(e2))).sum())
 
 
-def feasible(x: np.ndarray, cap: np.ndarray) -> bool:
+def feasible(x: np.ndarray, cap: np.ndarray, min_group_capacity: float = MIN_CAP) -> bool:
     c1 = cap @ x
-    return c1 >= MIN_CAP and cap.sum() - c1 >= MIN_CAP
+    return c1 >= min_group_capacity and cap.sum() - c1 >= min_group_capacity
 
 
 def local_search(x: np.ndarray, R: np.ndarray, w: np.ndarray, cap: np.ndarray, max_rounds: int = 50,
-                 movable_mask: np.ndarray | None = None):
+                 movable_mask: np.ndarray | None = None, max_changed: int | None = None,
+                 min_group_capacity: float = MIN_CAP):
     x = x.astype(np.float64).copy()
+    x_initial = x.copy()
     movable = np.ones(len(x), dtype=bool) if movable_mask is None else np.asarray(movable_mask, dtype=bool)
     if movable.shape != x.shape:
         raise ValueError("movable_mask 길이가 구성과 다름")
+    if max_changed is not None and max_changed < 0:
+        raise ValueError("max_changed must be nonnegative")
+    if not feasible(x, cap, min_group_capacity):
+        raise ValueError("initial composition violates min_group_capacity")
     tot = R.sum(1)
     e1 = R @ x
     best = float((w * (np.abs(e1) + np.abs(tot - e1))).sum())
@@ -84,7 +90,11 @@ def local_search(x: np.ndarray, R: np.ndarray, w: np.ndarray, cap: np.ndarray, m
         E1 = e1[:, None] + R * sign[None, :]
         cand = (w[:, None] * (np.abs(E1) + np.abs(tot[:, None] - E1))).sum(0)
         c1 = cap @ x + cap * sign
-        cand[(c1 < MIN_CAP) | (total_cap - c1 < MIN_CAP) | ~movable] = np.inf
+        cand[(c1 < min_group_capacity) | (total_cap - c1 < min_group_capacity) | ~movable] = np.inf
+        changed_count = int(np.count_nonzero(x != x_initial))
+        if max_changed is not None:
+            changed_after_toggle = changed_count + np.where(x == x_initial, 1, -1)
+            cand[changed_after_toggle > max_changed] = np.inf
         j = int(np.argmin(cand))
         if cand[j] < best - 1e-6:
             x[j] = 1 - x[j]
@@ -101,7 +111,14 @@ def local_search(x: np.ndarray, R: np.ndarray, w: np.ndarray, cap: np.ndarray, m
             E = E1i[:, None] + R[:, top2]
             v = (w[:, None] * (np.abs(E) + np.abs(tot[:, None] - E))).sum(0)
             c1 = cap @ x - cap[i] + cap[top2]
-            v[(c1 < MIN_CAP) | (total_cap - c1 < MIN_CAP)] = np.inf
+            v[(c1 < min_group_capacity) | (total_cap - c1 < min_group_capacity)] = np.inf
+            if max_changed is not None:
+                ci_before = int(x[i] != x_initial[i])
+                ci_after = int((1 - x[i]) != x_initial[i])
+                cj_before = (x[top2] != x_initial[top2]).astype(np.int8)
+                cj_after = ((1 - x[top2]) != x_initial[top2]).astype(np.int8)
+                moved_after_swap = changed_count - ci_before - cj_before + ci_after + cj_after
+                v[moved_after_swap > max_changed] = np.inf
             k = int(np.argmin(v))
             if v[k] < best - 1e-6:
                 x[i], x[top2[k]] = 0, 1
