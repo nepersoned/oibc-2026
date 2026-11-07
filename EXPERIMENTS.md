@@ -110,6 +110,7 @@
 † SM#5 oracle diagnostic score is not a deployable model score. ‡ SM#37-B composition uses the contemporaneous Site-only path; check its report’s exact comparison window before comparing to later SMs. § SM#48 2023 value is retrospective because composition was selected using 2024 observations. SM#42 F3, SM#47 seed7 and other single-seed entries are not directly comparable to three-seed candidates. All W are local KRW penalties, not leaderboard scores; external-source setups differ across historical rows.
 
 | SM#50 | Forecast uncertainty regime diagnostics for frozen Site/Group forecasts | — | — | 진단 완료; 동적 alpha 근거 불충분, 성능개선 주장 없음 | [사전등록](SM50_PREREGISTRATION.md) · [진단](SM50_FORECAST_UNCERTAINTY_DIAGNOSTIC.md) |
+| SM#51 | ens_v3 격차 자료감사와 후속연구 우선순위 | — | — | 준비 완료; ens_v3 OOF 미확보, 학습 미실행 | [우선순위](SM51_RESEARCH_PRIORITIZATION.md) · [아티팩트 감사](SM51_ARTIFACT_AVAILABILITY_AUDIT.md) |
 
 ## 제출
 

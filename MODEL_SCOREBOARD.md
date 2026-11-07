@@ -1,6 +1,6 @@
 # Model Scoreboard
 
-최종 갱신: 2026-11-07. 공식 점수는 높을수록 좋고, 로컬 정산 페널티 W는 낮을수록 좋다. 공식 S는 제출 평가기간 점수이며 로컬 W와 평가기간이 다르므로 직접 비교하지 않는다. 제출 날짜는 확인된 날짜만 기록하고 시각·순위는 제공되지 않으면 비워 둔다.
+최종 갱신: 2026-11-08. 공식 점수는 높을수록 좋고, 로컬 정산 페널티 W는 낮을수록 좋다. 공식 S는 제출 평가기간 점수이며 로컬 W와 평가기간이 다르므로 직접 비교하지 않는다. 제출 날짜는 확인된 날짜만 기록하고 시각·순위는 제공되지 않으면 비워 둔다.
 
 ## 1. 공식 리더보드 제출
 
@@ -28,6 +28,7 @@ S1–S3 상세 및 제출 시각 기준은 [SUBMISSIONS.md](SUBMISSIONS.md) 참�
 | SM#48 B2 | optimized composition + refit Group | 106,740,431 (회고) | 194,338,244 | — | 공식 미제출; 재사용 평가기간 | [보고서](SM48_COMPOSITION_GROUP_REFIT.md); `outputs/sm48/manifest.json` |
 | SM#49 | candidate stress test, no training | — | — | — | A1-REF 권고, 감사 | [비교](outputs/sm49/FINAL_CANDIDATE_COMPARISON.md); [선정](outputs/sm49/FINAL_SELECTION_RECOMMENDATION.md) |
 | SM#50 | forecast uncertainty regime diagnostic | — | — | — | 진단 완료; 동적 alpha·새 모델 미채택 | [사전등록](SM50_PREREGISTRATION.md); [결과](SM50_FORECAST_UNCERTAINTY_DIAGNOSTIC.md) |
+| SM#51 | leaderboard gap / artifact audit | — | — | — | 준비 단계; ens_v3 OOF 없음, 신규 학습 없음 | [우선순위](SM51_RESEARCH_PRIORITIZATION.md); [아티팩트](SM51_ARTIFACT_AVAILABILITY_AUDIT.md) |
 
 ## 3. 파일 무결성
 

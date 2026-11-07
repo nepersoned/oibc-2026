@@ -95,6 +95,9 @@ uv pip install --python .venv/Scripts/python.exe -r requirements.txt
 - [오성민 상세 실험 기록](SEONGMIN_EXPERIMENTS.md)
 - [공식 제출 기록](SUBMISSIONS.md)
 - [SM#50 예보 불확실성 진단](SM50_FORECAST_UNCERTAINTY_DIAGNOSTIC.md)
+- [SM#51 연구 우선순위](SM51_RESEARCH_PRIORITIZATION.md)
+- [SM#51 ens_v3 아티팩트 감사](SM51_ARTIFACT_AVAILABILITY_AUDIT.md)
+- [SM#51 다음 실험 계획](SM51_NEXT_EXPERIMENT_PLAN.md)
 
 > 📒 **전체 실험 로그: [EXPERIMENTS.md](EXPERIMENTS.md)** (`JH#1` ~ `JH#35`, 실험별 점수·판정) · 제출 기록: [SUBMISSIONS.md](SUBMISSIONS.md)
 

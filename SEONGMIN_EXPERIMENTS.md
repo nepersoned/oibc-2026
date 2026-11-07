@@ -574,6 +574,18 @@ Round revision 및 시간별 cloud 변화에서 Group 상대 W가 high uncertain
 - 재현 스크립트: `src/analysis/sm50_forecast_uncertainty.py`
 - 로컬 집계 산출물: `outputs/sm50/` (Git 제외)
 
+## SM#51 — 리더보드 격차 진단 및 연구 우선순위
+
+공식 기록상 ens_v3 S=6,459,800,168, SM46 A1-REF S=6,448,069,881으로 차이는 11,730,287점이다. ens_v3 W=176,485,314원은 2024–25 반년 CV이며 A1-REF의 두 full-year W와 평가 구성·관측 마스크·원천이 달라 직접적인 성능 차이나 원인분해로 해석하지 않았다. 공식 평가 실적도 없어 절대 W를 역산하지 않았다.
+
+저장소·무시된 `outputs/`·`submissions/`에서 ens_v3 전용 site/group OOF, matching manifest, 실행 로그는 확인되지 않았다. `sm_v2` 부분 재현 및 SM40 예측을 ens_v3로 간주하지 않았다. 따라서 피크/월별 W, Site/Group residual 상관, 구름 수정폭 연관은 A1에 대해서만 SM45/SM50 산출물을 확인할 수 있고, ens_v3와 같은 관측 마스크의 일별 총량·극단 오차일·발전소별 잔차/관측률 비교는 불가하다.
+
+다음 연구는 제공 과거 실적에서 strict prior-only OOF로 추정하는 발전소별 morning–afternoon solar-azimuth response proxy를 우선한다. 이는 panel orientation의 측정값이 아니며, 고정 reference composition·A1 Group·alpha=0.2·weekday·대회 제공 WA/WB를 유지한 ablation으로 검증해야 한다. 공식 허용 근거가 없는 외부 GFS/LDAPS는 새 후보에 포함하지 않는다.
+
+- 상세 격차·후보 평가: [SM51_RESEARCH_PRIORITIZATION.md](SM51_RESEARCH_PRIORITIZATION.md)
+- 파일·해시·스키마 감사: [SM51_ARTIFACT_AVAILABILITY_AUDIT.md](SM51_ARTIFACT_AVAILABILITY_AUDIT.md)
+- 다음 실험 사전계획: [SM51_NEXT_EXPERIMENT_PLAN.md](SM51_NEXT_EXPERIMENT_PLAN.md)
+
 # SM 전체 실험 결과 요약
 
 | SM ID | 실험 목적 | 기존 대비 변경사항 | 2023~24 W (KRW) | 2024~25 W (KRW) | 최종 판정 | 근거 문서 |
@@ -626,5 +638,6 @@ Round revision 및 시간별 cloud 변화에서 Group 상대 W가 high uncertain
 | SM#48 B2 | composition-aware Group refit | optimized comp, Group seed100 | 106,740,431‡ | 194,338,244 | 회고·재사용 기간; 공식 미제출 | [보고서](SM48_COMPOSITION_GROUP_REFIT.md) |
 | SM#49 | frozen candidate stress audit | no training or changes | — | — | A1-REF 권고 | [비교](outputs/sm49/FINAL_CANDIDATE_COMPARISON.md) |
 | SM#50 | 예보 불확실성 regime 진단 | 기존 SM45 예측 고정, U tercile 분석 | — | — | 동적 alpha 근거 불충분; 새 후보 없음 | [진단 보고서](SM50_FORECAST_UNCERTAINTY_DIAGNOSTIC.md) · [사전등록](SM50_PREREGISTRATION.md) |
+| SM#51 | ens_v3 gap/OOF artifact audit | 점수·로컬 자료 범위 감사, 학습 없음 | — | — | ens_v3 예측 NOT AVAILABLE; B형 site solar-shape proxy를 후속 우선순위로 제안 | [우선순위](SM51_RESEARCH_PRIORITIZATION.md) · [계획](SM51_NEXT_EXPERIMENT_PLAN.md) |
 
 † 해당 값은 오라클·기존 후보 진단이며 새로운 독립 후보 W로 비교하면 안 된다. ‡ 2023 값은 회고적 구성 진단이다. W는 실험별 평가 마스크, 데이터 원천, 모델 구성에 따라 달라 직접적인 단일 순위로 읽지 않는다. 공식 리더보드 S는 로컬 W와 별도 지표다. 외부 데이터 및 holiday 규정 적합성은 각 원본 보고서에서 확인된 범위만 따른다.
