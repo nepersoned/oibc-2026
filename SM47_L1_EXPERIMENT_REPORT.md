@@ -70,9 +70,9 @@ The two existing SM46 candidates and SM41 originals were not written or modified
 
 | Artifact | SHA256 |
 |---|---|
-| C0 2023 Site input | `dcbdae2be77aab72a864f8c973ada8d3c0d8e9a78e62541d700095bc06e43f26` |
+| C0 2023 Site input | `c91a66367f06f42a00cc72b842d5eedca7b15ab9bc0566455141739a7148bc9b` |
 | C1 2023 Site prediction | `cf24f5f8ab7b018203bb4942b43cf83a83c8aa211faa0b9a46bee73bd58eedf1` |
-| C0 2024 Site input | `effb00c4668c5ebcff81c81ed32e9471cf14f283c8f54d6983e75dd05a4d2a98` |
+| C0 2024 Site input | `dcbdae2be77aab72a864f8c973ada8d3c0d8e9a78e62541d700095bc06e43f26` |
 | C1 2024 Site prediction | `c4133cb677590ae4134009c83b47c3703fe698f00373fccad4d7e40d5ea7da70` |
 | Frozen Group 2023 prediction | `22dc17b9581073a370a0dc4dd1d5fabcb75e281fd3a9b3fb4a76cf57f6052598` |
 | Frozen Group 2024 prediction | `651b2f296316139af6ccf6aecabdd3073b1710de6fff35df18ecd20bb63b58b7` |
