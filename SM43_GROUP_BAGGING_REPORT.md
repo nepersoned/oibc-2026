@@ -43,7 +43,7 @@ The official baseline values are from the executed, time-forward official-code a
 | Worst complete-month W increase | +0.457% | +0.228% |
 | Paired bootstrap CI for ΔW | not preregistered for selection year | [−283,242, +209,236] KRW |
 
-The point estimate improved in 7 of 12 complete months and worsened in 5 in both years; worst relative month increase was below 5%. The bootstrap is paired by hourly aggregate penalties, with 168-hour moving blocks, 5,000 replicates and seed 7. It quantifies sampling variability conditional on these reused validation years; it does not remove model/feature selection bias.
+The point estimate improved in 6 of 12 complete months in 2023–24 and 7 of 12 in 2024–25; worst relative month increase was below 5% in both. The bootstrap is paired by hourly aggregate penalties, with 168-hour moving blocks, 5,000 replicates and seed 7. It quantifies sampling variability conditional on these reused validation years; it does not remove model/feature selection bias.
 
 ## Group forecast stability and CF target audit
 
