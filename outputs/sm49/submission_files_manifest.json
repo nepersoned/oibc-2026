@@ -1,0 +1,348 @@
+{
+  "experiment": "SM49 final candidate stress test",
+  "repository": "nepersoned/oibc-2026",
+  "branch": "seongmin",
+  "revision": "3f634dc608ede13e91c567531c91eb880fb7c036",
+  "python": "C:\\Users\\ehfal\\Documents\\Codex\\2026-11-05\\oibc-2026-0-ml-research-engineer\\work\\oibc-2026\\.venv\\Scripts\\python.exe",
+  "versions": {
+    "python": "3.11.15 (main, Jun 23 2026, 15:20:37) [MSC v.1944 64 bit (AMD64)]",
+    "lightgbm": "4.7.0",
+    "pandas": "3.1.1",
+    "numpy": "2.4.6"
+  },
+  "models_retrained": false,
+  "composition_reoptimized": false,
+  "candidate_files_modified": false,
+  "portal_upload": false,
+  "calendar_mode": "weekday",
+  "external_weather": false,
+  "external_holidays": false,
+  "candidate_pairs": {
+    "A": {
+      "composition": "outputs/sm46/composition_sm46_a1_ref.csv",
+      "composition_sha256": "374a7e01adf59d0724741121ceea09d434416530358107a6f62931471331dcfd",
+      "forecast": "outputs/sm46/forecast_sm46_a1_ref.csv",
+      "forecast_sha256": "8365c1fc7a075a54a10eec0cc1a8da9b93404852c5e1837b69a26ad8e3a09008",
+      "validator_exit_code": 0,
+      "composition_file_bytes": 2545,
+      "forecast_file_bytes": 726236,
+      "integrity": {
+        "composition_path": "C:\\Users\\ehfal\\Documents\\Codex\\2026-11-05\\oibc-2026-0-ml-research-engineer\\work\\oibc-2026\\outputs\\sm46\\composition_sm46_a1_ref.csv",
+        "forecast_path": "C:\\Users\\ehfal\\Documents\\Codex\\2026-11-05\\oibc-2026-0-ml-research-engineer\\work\\oibc-2026\\outputs\\sm46\\forecast_sm46_a1_ref.csv",
+        "composition_sha256": "374a7e01adf59d0724741121ceea09d434416530358107a6f62931471331dcfd",
+        "forecast_sha256": "8365c1fc7a075a54a10eec0cc1a8da9b93404852c5e1837b69a26ad8e3a09008",
+        "composition_hash_matches_expected": true,
+        "forecast_hash_matches_expected": true,
+        "comp_errors": [],
+        "forecast_rows": 17520,
+        "groups": 2,
+        "timestamps": 8760,
+        "duplicates": 0,
+        "missing_values": 0,
+        "nonfinite": 0,
+        "negative": 0,
+        "capacity_kw": {
+          "G1": 20465.655,
+          "G2": 22189.715
+        }
+      }
+    },
+    "B": {
+      "composition": "outputs/sm46/composition_sm46_a1_comp.csv",
+      "composition_sha256": "2ff0c07c5ee59ce66238575b14b8340a53daf34aec89c577f644aaa7bf357872",
+      "forecast": "outputs/sm46/forecast_sm46_a1_comp.csv",
+      "forecast_sha256": "0cda37b9576e1fa35cf849cf11847414dc440ab2242598f33d2ab68fa75ddfa9",
+      "validator_exit_code": 0,
+      "composition_file_bytes": 2545,
+      "forecast_file_bytes": 724429,
+      "integrity": {
+        "composition_path": "C:\\Users\\ehfal\\Documents\\Codex\\2026-11-05\\oibc-2026-0-ml-research-engineer\\work\\oibc-2026\\outputs\\sm46\\composition_sm46_a1_comp.csv",
+        "forecast_path": "C:\\Users\\ehfal\\Documents\\Codex\\2026-11-05\\oibc-2026-0-ml-research-engineer\\work\\oibc-2026\\outputs\\sm46\\forecast_sm46_a1_comp.csv",
+        "composition_sha256": "2ff0c07c5ee59ce66238575b14b8340a53daf34aec89c577f644aaa7bf357872",
+        "forecast_sha256": "0cda37b9576e1fa35cf849cf11847414dc440ab2242598f33d2ab68fa75ddfa9",
+        "composition_hash_matches_expected": true,
+        "forecast_hash_matches_expected": true,
+        "comp_errors": [],
+        "forecast_rows": 17520,
+        "groups": 2,
+        "timestamps": 8760,
+        "duplicates": 0,
+        "missing_values": 0,
+        "nonfinite": 0,
+        "negative": 0,
+        "capacity_kw": {
+          "G1": 21161.64,
+          "G2": 21493.73
+        }
+      }
+    },
+    "C": {
+      "composition": "outputs/sm48/composition_sm48_final.csv",
+      "composition_sha256": "2ff0c07c5ee59ce66238575b14b8340a53daf34aec89c577f644aaa7bf357872",
+      "forecast": "outputs/sm48/forecast_sm48_final.csv",
+      "forecast_sha256": "7d48693a161db87cc55c202dba006e4eda874d86c0e3712046ba5e290f4f8067",
+      "validator_exit_code": 0,
+      "composition_file_bytes": 2545,
+      "forecast_file_bytes": 726047,
+      "integrity": {
+        "composition_path": "C:\\Users\\ehfal\\Documents\\Codex\\2026-11-05\\oibc-2026-0-ml-research-engineer\\work\\oibc-2026\\outputs\\sm48\\composition_sm48_final.csv",
+        "forecast_path": "C:\\Users\\ehfal\\Documents\\Codex\\2026-11-05\\oibc-2026-0-ml-research-engineer\\work\\oibc-2026\\outputs\\sm48\\forecast_sm48_final.csv",
+        "composition_sha256": "2ff0c07c5ee59ce66238575b14b8340a53daf34aec89c577f644aaa7bf357872",
+        "forecast_sha256": "7d48693a161db87cc55c202dba006e4eda874d86c0e3712046ba5e290f4f8067",
+        "composition_hash_matches_expected": true,
+        "forecast_hash_matches_expected": true,
+        "comp_errors": [],
+        "forecast_rows": 17520,
+        "groups": 2,
+        "timestamps": 8760,
+        "duplicates": 0,
+        "missing_values": 0,
+        "nonfinite": 0,
+        "negative": 0,
+        "capacity_kw": {
+          "G1": 21161.64,
+          "G2": 21493.73
+        }
+      }
+    }
+  },
+  "validator_commands": {
+    "A": ".venv/Scripts/python.exe src/validate_submission.py --composition outputs/sm46/composition_sm46_a1_ref.csv --forecast outputs/sm46/forecast_sm46_a1_ref.csv",
+    "B": ".venv/Scripts/python.exe src/validate_submission.py --composition outputs/sm46/composition_sm46_a1_comp.csv --forecast outputs/sm46/forecast_sm46_a1_comp.csv",
+    "C": ".venv/Scripts/python.exe src/validate_submission.py --composition outputs/sm48/composition_sm48_final.csv --forecast outputs/sm48/forecast_sm48_final.csv"
+  },
+  "source_input_hashes": {
+    "data\\handover 2\\01_participant_dataset\\sites.csv": {
+      "sha256": "93d166fffd009c3643db748fc6d5a1d48851e5f70b314171130e6ab6b7997ea2",
+      "matches_sm46_manifest": true
+    },
+    "data\\handover 2\\01_participant_dataset\\smp.csv": {
+      "sha256": "396bfadb73332f5b8ce61821ad9425ee93052ced2b71f0666cf071d2b95fa79c",
+      "matches_sm46_manifest": true
+    },
+    "data\\handover 2\\01_participant_dataset\\train\\smp.csv": {
+      "sha256": "6ae610fc3e527e603681da3867ecd79d210ed24a17e676ac16149ba7d349645b",
+      "matches_sm46_manifest": true
+    },
+    "data\\handover 2\\01_participant_dataset\\train\\generation.parquet": {
+      "sha256": "a2c334a5d2dd0983be78c7ac138e25a013cf70fd9d027515953129ea79964e95",
+      "matches_sm46_manifest": true
+    },
+    "data\\handover 2\\01_participant_dataset\\train\\forecast_wa.parquet": {
+      "sha256": "a2bda6853d5dcc2dc140e976c1cbc75d0d9a085b41ba17f5ac994704d364a784",
+      "matches_sm46_manifest": true
+    },
+    "data\\handover 2\\01_participant_dataset\\train\\forecast_wb.parquet": {
+      "sha256": "e8e5de90652c1e949e695b3f8b7f3e1001d3c4a02e3961a42bca1921d2439483",
+      "matches_sm46_manifest": true
+    },
+    "data\\handover 2\\01_participant_dataset\\test\\forecast_wa.parquet": {
+      "sha256": "610029e17c00cec1498fc2e48a980269496ece977e81d3d57302361a064a5eab",
+      "matches_sm46_manifest": true
+    },
+    "data\\handover 2\\01_participant_dataset\\test\\forecast_wb.parquet": {
+      "sha256": "fe03948b231c50e4688f1f4cdcef1613cb36c72b0e1f93972824b707abe04219",
+      "matches_sm46_manifest": true
+    }
+  },
+  "saved_validation_predictions": {
+    "outputs/sm48/group_b2_2023.parquet": "da76456b2190b2113e503f652add038bc1ae71f10933544d9aa1f0d18a5a6a6b",
+    "outputs/sm48/group_b2_2024.parquet": "4c33cd82b128631b0b6a669207b29c31340e35333a2767a7dd77cd8457c1a968",
+    "outputs/sm48/group_b2_submit.parquet": "6c76f22e9e38a9805d3222847f9a6e886d1eff5b8c2258a5b14a96386614a7c6",
+    "outputs/sm48/B0_A1_REF_2023.parquet": "341677ec5326b77e123bbc86e3eca296b77d805c4eb76812b78562f4c72c86fe",
+    "outputs/sm48/B0_A1_REF_2024.parquet": "a57692044c87d04ce3145a8d52e024d6f429ebca325e25f1e954d5287e0d79cd",
+    "outputs/sm48/B1_A1_COMP_site_2023.parquet": "72e49d8288cb4352804c8b4c585e94a04bc2e90bd4b69c91f36e2d61d7439985",
+    "outputs/sm48/B1_A1_COMP_site_2024.parquet": "d2058c8841618d5380e4b05131ae3c361ff2a0f53e4b74f2188eb2db29fc05d1",
+    "outputs/sm48/B2_COMP_group_refit_2023.parquet": "b9c37f1ec385d228188c7e75d9bfff7fe2671ce70beabbe1caaf22c3b0fbf6f1",
+    "outputs/sm48/B2_COMP_group_refit_2024.parquet": "7a5e284dfa41a1a0b6a3bf8828eb0251163726f02bba92a87fe14372a5b74402"
+  },
+  "scorer_crosscheck": "official score and independent hourly sum exact equality for each candidate/window",
+  "caveat": "validation data are reused; no submission-period W exists",
+  "report_artifacts": {
+    "FINAL_CANDIDATE_COMPARISON.md": {
+      "sha256": "6f1ca811da1465c4f7d5322a5412c8acb747667718cd0bc4b302c23d8dc9ba51",
+      "bytes": 7228
+    },
+    "SUBMISSION_READINESS_AUDIT.md": {
+      "sha256": "e2e2a90eb1b636ca2a671fae65124f333cdf2257c57579d5320f24b62b453e5e",
+      "bytes": 5560
+    },
+    "FORECAST_DISTRIBUTION_AUDIT.md": {
+      "sha256": "efd9e514ffc6d50a3f2c5766d9e549137c1983ce324bfef29fa8e6e1569d87f3",
+      "bytes": 4767
+    },
+    "FINAL_SELECTION_RECOMMENDATION.md": {
+      "sha256": "c545af156362c2e103e96e79b2102fff9cf402b7089e863d14a23ab8e577ba96",
+      "bytes": 3556
+    },
+    "audit_results.json": {
+      "sha256": "c5577b101e3bef3e45746d79db446b1929f04f47200d31bc5597b9466e80be12",
+      "bytes": 33196
+    }
+  },
+  "calendar_and_feature_audit": {
+    "SM46_A_calendar": "weekday",
+    "SM46_B_calendar": "weekday",
+    "Site_feature_count": 92,
+    "Group_feature_count": 300,
+    "calendar_columns": [
+      "dow",
+      "is_weekend"
+    ],
+    "holiday_or_external_prefix_features_present": false,
+    "SM48_group_feature_count": 300,
+    "environment_controls": {
+      "OIBC_CAL_MODE": "weekday",
+      "OIBC_EXT_SOURCES": "no_openmeteo",
+      "OIBC_GFS": "0",
+      "OIBC_GEFS": "0",
+      "OIBC_UM": "0",
+      "OIBC_SRC": "prov",
+      "OIBC_SPATIAL": "none",
+      "OIBC_PHYSICS": "none",
+      "OIBC_WX2": null
+    }
+  },
+  "scoring_summary": {
+    "2023_24": {
+      "A1_REF": {
+        "W": 106673757.09443444,
+        "G1": 79437384.89343725,
+        "G2": 27236372.200997207,
+        "peak_11_15": 88965725.84786418,
+        "offpeak": 17708031.246570267,
+        "observed_site_hours": 1256595
+      },
+      "A1_COMP": {
+        "W": 107077099.81765664,
+        "G1": 76298267.06486908,
+        "G2": 30778832.752787556,
+        "peak_11_15": 89329711.110921,
+        "offpeak": 17747388.70673563,
+        "observed_site_hours": 1256595
+      },
+      "SM48_B2": {
+        "W": 106740431.01766543,
+        "G1": 75929540.89476563,
+        "G2": 30810890.122899815,
+        "peak_11_15": 88980049.94618358,
+        "offpeak": 17760381.071481884,
+        "observed_site_hours": 1256595
+      }
+    },
+    "2024_25": {
+      "A1_REF": {
+        "W": 197526260.47453704,
+        "G1": 93693778.0344879,
+        "G2": 103832482.44004914,
+        "peak_11_15": 163019883.01132697,
+        "offpeak": 34506377.46321009,
+        "observed_site_hours": 2170645
+      },
+      "A1_COMP": {
+        "W": 196397961.1106363,
+        "G1": 98106023.75985762,
+        "G2": 98291937.35077865,
+        "peak_11_15": 161946075.5405535,
+        "offpeak": 34451885.57008278,
+        "observed_site_hours": 2170645
+      },
+      "SM48_B2": {
+        "W": 194338243.7552895,
+        "G1": 97274254.71968026,
+        "G2": 97063989.03560925,
+        "peak_11_15": 160413060.98704213,
+        "offpeak": 33925182.76824735,
+        "observed_site_hours": 2170645
+      }
+    },
+    "holdout_2024_12_2025_05": {
+      "A1_REF": {
+        "W": 87757370.31201154,
+        "G1": 39935289.84092831,
+        "G2": 47822080.47108325,
+        "peak_11_15": 72555178.9781868,
+        "offpeak": 15202191.33382475,
+        "observed_site_hours": 1104538
+      },
+      "A1_COMP": {
+        "W": 86870947.95522924,
+        "G1": 41195303.73763463,
+        "G2": 45675644.21759461,
+        "peak_11_15": 71699267.50320515,
+        "offpeak": 15171680.452024095,
+        "observed_site_hours": 1104538
+      },
+      "SM48_B2": {
+        "W": 86259282.48967998,
+        "G1": 41143564.56920582,
+        "G2": 45115717.920474164,
+        "peak_11_15": 71351280.98834345,
+        "offpeak": 14908001.501336545,
+        "observed_site_hours": 1104538
+      }
+    }
+  },
+  "bootstrap": {
+    "B2_minus_B1": {
+      "repetitions": 5000,
+      "seed": 7,
+      "block_hours": 168,
+      "mean": -653402.9959198267,
+      "median": -664181.8298896663,
+      "ci95": [
+        -1944103.3740555542,
+        670231.9879951882
+      ],
+      "includes_zero": true
+    },
+    "B2_minus_B0": {
+      "repetitions": 5000,
+      "seed": 7,
+      "block_hours": 168,
+      "mean": -1572265.3882539116,
+      "median": -1571410.3975208171,
+      "ci95": [
+        -2295760.9716878426,
+        -851974.9129440346
+      ],
+      "includes_zero": false
+    }
+  },
+  "forecast_inputs": {
+    "WA_test_missing_station_round_hour_rows": 264,
+    "WA_round10_missing": 182,
+    "WA_round17_missing": 82,
+    "station_hour_missing_in_both_rounds": 0,
+    "WB_missing_rows": 0,
+    "source": "provided test/forecast_wa.parquet and forecast_wb.parquet"
+  },
+  "rule_reference": "https://dataen.ai/en/challenge/2026",
+  "portal_submission_remaining_count": "not checked; user must confirm in portal",
+  "validator_recheck_exit_codes": {
+    "A": 0,
+    "B": 0,
+    "C": 0
+  },
+  "validator_passes": {
+    "sites": 253,
+    "timestamps": 8760,
+    "group_hour_rows": 17520,
+    "minimum_group_capacity_kw": 20000,
+    "no_duplicate_missing_or_invalid_forecasts": true
+  },
+  "existing_candidate_manifests": {
+    "outputs/sm46/manifest_a1_ref.json": {
+      "sha256": "7c06c08f571e56fc9e6156e2a8044dc3a8b1b7cc9cb580037a5011a3d7cdd68a",
+      "unchanged": true
+    },
+    "outputs/sm46/manifest_a1_comp.json": {
+      "sha256": "7dfeec5b81f4960420e64e112e6d3a5dc4af46054107ddd7fad64ee89c7dfc6a",
+      "unchanged": true
+    },
+    "outputs/sm48/manifest.json": {
+      "sha256": "acf73c1688bdf9aa31143b85d37bd012c90a06dce1e7c04ad96db97fd6adee8e",
+      "unchanged": true
+    }
+  }
+}
