@@ -45,6 +45,7 @@ def load_generation(a: pd.Timestamp, b: pd.Timestamp) -> pd.DataFrame:
 
 
 CLEAR_REF = os.environ.get("OIBC_CLEARREF", "0") == "1"   # 발전소별 맑은날 기준값 특징
+CURT = os.environ.get("OIBC_CURT", "0") == "1"           # 발전소별 출력제한 성향 특징 (site_curt_rate)
 
 
 def _p95(src: pd.DataFrame, dst: pd.DataFrame, sites: pd.DataFrame, min_n: int) -> np.ndarray:
@@ -82,6 +83,36 @@ def add_clear_ref(train: pd.DataFrame, target: pd.DataFrame, sites: pd.DataFrame
         d.drop(columns=["mo", "hr"], inplace=True)
 
 
+def _curt_rate(src: pd.DataFrame, dst_sites: pd.Series, min_n: int) -> np.ndarray:
+    """src 실적에서 발전소별 '출력제한 성향' = 경부하 휴일(봄·가을 휴일) 11~15시 중 **집합 전체는 맑은데**(그 시각 전 발전소
+    설비이용률 중앙값 ≥ 0.45) 자기 이용률이 중앙값의 40% 미만인 시간 비율. 표본 < min_n 이면 전체 평균."""
+    s = src[src.lowload == 1]
+    s = s[s.ts.dt.hour.between(11, 15)]
+    med = s.groupby("ts").cf.transform("median")
+    s = s[med >= 0.45].assign(clp=lambda d: (d.cf < 0.4 * med.loc[d.index]).astype(float))
+    g = s.groupby("site_id").clp
+    rate = g.mean().where(g.size() >= min_n)
+    fill = float(s.clp.mean()) if len(s) else 0.0
+    return dst_sites.map(rate).fillna(fill).to_numpy()
+
+
+def add_curt_rate(train: pd.DataFrame, target: pd.DataFrame, sites: pd.DataFrame):
+    """발전소별 출력제한 성향 (site_curt_rate). 학습 행은 다른 해(12개월 블록) 실적으로만, 예측 행은 **최근 12개월**로 계산
+    (출력제한은 해마다 늘어 최근이 평가 기간과 가장 가깝다)."""
+    cap = sites.set_index("site_id").capacity_kw
+    cal = F.calendar(train.ts)
+    src = train[["site_id", "ts"]].assign(cf=train.energy / train.site_id.map(cap), lowload=cal.lowload.to_numpy())
+    last = train.ts.max()
+    blk = ((last - train.ts).dt.days // 365).to_numpy()
+    out = np.zeros(len(train))
+    for b in np.unique(blk):
+        rows = blk == b
+        out[rows] = _curt_rate(src[blk != b], train.loc[rows, "site_id"], min_n=6)
+    train["site_curt_rate"] = out.astype("float32")
+    target["site_curt_rate"] = _curt_rate(src[blk == 0], target.site_id, min_n=6).astype("float32")
+    log(f"출력제한 성향 추가 — 예측 행 평균 {float(target.site_curt_rate.mean()):.3f}, 최근 12개월 기준")
+
+
 def run_rich(gen, sites, pred_a, pred_b, fc_split: str, weight: str, params: dict,
              ext_mode: str = "none", wx_cut: str | None = None) -> pd.DataFrame:
     """특징 확장 버전 — 두 라운드를 한 모델에 (17 우선 + 10 보조), 대상일 내 문맥, 전국 요약, 발전소 ID."""
@@ -101,6 +132,8 @@ def run_rich(gen, sites, pred_a, pred_b, fc_split: str, weight: str, params: dic
     if CLEAR_REF:
         add_clear_ref(base, target, sites)
         log("맑은날 기준값(site_cf_p95) 추가 — 학습 행은 다른 해 실적으로 계산")
+    if CURT:
+        add_curt_rate(base, target, sites)
     d = F.build_rich(base, s, fa, fb, reg, ext, wx)
     feats = F.rich_feats(d)
     log(f"학습 행렬 {len(d):,} × {len(feats)}")

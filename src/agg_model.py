@@ -148,8 +148,16 @@ def fit_predict(train_t, pred_idx, gw_tr, wd_tr, gw_pr, wd_pr, sites, comp, para
     dpr = design(pred_idx, gw_pr, wd_pr, sites, comp)
     halflife = params.pop("halflife", None)              # 최근 데이터 가중: 반감기(년)
     csi = params.pop("csi", False)                       # 맑은날 지수 타깃: cf / (청천일사/1000)
+    ref_mode = params.pop("ref", False)                  # True: 타깃 cf/기준CF (구조 모델) | "feat": 기준CF 를 특징으로만
+    use_ref = ref_mode is True and "ref_cf" in dtr.columns
     raw = np.zeros(len(dpr))
     y = dtr.cf.clip(0, 1.2)
+    if use_ref:
+        r_tr = np.clip(dtr.ref_cf.to_numpy(), 0.02, None)
+        r_pr = np.clip(dpr.ref_cf.fillna(0).to_numpy(), 0.02, None)
+        keep = dtr.ref_cf.to_numpy() > 0.05                       # 기준이 거의 0인 새벽·저녁은 학습에서 제외
+        y = (y / r_tr).clip(0, 1.5)
+        dtr, y = dtr[keep], y[keep]
     if csi:
         cs_tr = np.clip(dtr.ghi_cs.to_numpy() / 1000.0, 0.03, None)
         cs_pr = np.clip(dpr.ghi_cs.to_numpy() / 1000.0, 0.03, None)
@@ -179,10 +187,60 @@ def fit_predict(train_t, pred_idx, gw_tr, wd_tr, gw_pr, wd_pr, sites, comp, para
         raw += m.predict(dpr[feats]) / seeds
     if csi:
         raw = raw * cs_pr
+    if use_ref:
+        raw = raw * r_pr
     cf = np.where(dpr.elev > -2, np.clip(raw, 0, None), 0.0)
     imp = pd.Series(m.feature_importances_, index=feats).sort_values(ascending=False)
     log(f"[{algo}] 학습 {len(dtr):,}행 × {len(feats)}  중요도 상위: " + ", ".join(imp.index[:10]))
     return dpr[["group", "ts"]].assign(cf_hat=cf)
+
+
+def site_curves(gen: pd.DataFrame, sites: pd.DataFrame, min_n: int = 8) -> pd.Series:
+    """발전소별 (월, 시) 맑은날 곡선 = 설비이용률 95% 분위. 표본 부족은 같은 B 관측지점 평균 → 전체 평균으로 대체."""
+    cap = sites.set_index("site_id").capacity_kw
+    g = gen.assign(cf=gen.energy / gen.site_id.map(cap), mo=gen.ts.dt.month, hr=gen.ts.dt.hour)
+    q = g.groupby(["site_id", "mo", "hr"]).cf
+    ref = q.quantile(0.95).where(q.size() >= min_n)
+    st = sites.set_index("site_id").wb_station
+    ref_df = ref.rename("v").reset_index().assign(st=lambda d: d.site_id.map(st))
+    ref_st = ref_df.groupby(["st", "mo", "hr"]).v.mean()
+    ref_all = g.groupby(["mo", "hr"]).cf.quantile(0.95)
+    full = pd.MultiIndex.from_product([sites.site_id, range(1, 13), range(24)], names=["site_id", "mo", "hr"]).to_frame(index=False)
+    a = ref.reindex(pd.MultiIndex.from_frame(full)).to_numpy()
+    b = ref_st.reindex(pd.MultiIndex.from_arrays([full.site_id.map(st), full.mo, full.hr])).to_numpy()
+    c = ref_all.reindex(pd.MultiIndex.from_frame(full[["mo", "hr"]])).to_numpy()
+    full["v"] = np.where(np.isnan(a), np.where(np.isnan(b), c, b), a)
+    return full.set_index(["site_id", "mo", "hr"]).v.fillna(0.0)
+
+
+def ref_cf(curves: pd.Series, gen_rows: pd.DataFrame, sites: pd.DataFrame, comp: pd.Series) -> pd.Series:
+    """(group, ts) 기준 CF = Σ 보고 중 발전소 용량 × 곡선 / Σ 용량. gen_rows: (site_id, ts) 보고 행."""
+    cap = sites.set_index("site_id").capacity_kw
+    r = gen_rows[["site_id", "ts"]].copy()
+    r["mo"], r["hr"] = r.ts.dt.month, r.ts.dt.hour
+    r["v"] = curves.reindex(pd.MultiIndex.from_frame(r[["site_id", "mo", "hr"]])).to_numpy()
+    r["cap"] = r.site_id.map(cap)
+    r["group"] = r.site_id.map(comp)
+    t = r.groupby(["group", "ts"]).apply(lambda d: float((d.v * d.cap).sum() / d.cap.sum()), include_groups=False)
+    return t.rename("ref_cf")
+
+
+def attach_ref(train_t: pd.DataFrame, gen_train: pd.DataFrame, pred_rows: pd.DataFrame, pred_idx: pd.DataFrame,
+               sites: pd.DataFrame, comp: pd.Series):
+    """학습 행: 자기 12개월 블록을 뺀 실적으로 곡선 (누출 방지). 예측 행: **최근 12개월** 실적으로 곡선 (평가 연도에 가장 가까움)."""
+    last = gen_train.ts.max()
+    blk = ((last - gen_train.ts).dt.days // 365)
+    parts = []
+    for b in sorted(blk.unique()):
+        curves = site_curves(gen_train[blk != b], sites)
+        rows = gen_train[blk == b]
+        parts.append(ref_cf(curves, rows, sites, comp))
+    tr_ref = pd.concat(parts)
+    train_t = train_t.merge(tr_ref.reset_index(), on=["group", "ts"], how="left")
+    recent = gen_train[gen_train.ts > last - pd.DateOffset(months=12)]
+    pr_ref = ref_cf(site_curves(recent, sites), pred_rows, sites, comp)
+    pred_idx = pred_idx.merge(pr_ref.reset_index(), on=["group", "ts"], how="left")
+    return train_t, pred_idx
 
 
 def load_gen(a, b):
@@ -233,6 +291,9 @@ def main() -> None:
         act = load_gen(pa, pb)
         act_t = targets(act, sites, comp, min_cov=0.0)            # 보고 중 발전소 기준 실적
         idx = act_t[["group", "ts"]]
+        if params.get("ref"):
+            tr, idx = attach_ref(tr, gen[gen.ts < pa], act[["site_id", "ts"]], idx, sites, comp)
+            log(f"기준 CF 부착 — 학습 평균 {tr.ref_cf.mean():.3f}, 예측 평균 {idx.ref_cf.mean():.3f}")
         p = fit_predict(tr, idx, gw_tr, wd_tr, gw_tr, wd_tr, sites, comp, params)
         p = p.merge(act_t[["group", "ts", "cap_avail"]], on=["group", "ts"])
         p["pred"] = p.cf_hat * p.cap_avail
@@ -260,6 +321,10 @@ def main() -> None:
     fa_te, fb_te = attach_wx(*forecasts("test"), wx_cut)
     idx = pd.MultiIndex.from_product([["G1", "G2"], pd.date_range(pa, pb, freq="h").astype(f"datetime64[ns, {sc.TZ}]")],
                                      names=["group", "ts"]).to_frame(index=False)
+    if params.get("ref"):                                              # 제출: 모든 발전소가 보고한다고 보고 기준 CF 계산
+        all_rows = pd.MultiIndex.from_product([sites.site_id, idx.ts.unique()], names=["site_id", "ts"]).to_frame(index=False)
+        tr, idx = attach_ref(tr, gen, all_rows, idx, sites, comp)
+        log(f"기준 CF 부착 — 학습 평균 {tr.ref_cf.mean():.3f}, 예측 평균 {idx.ref_cf.mean():.3f}")
     p = fit_predict(tr, idx, gw_tr, wd_tr, group_weather(fa_te, fb_te, sites, comp), add_ext(wide(fa_te, fb_te)),
                     sites, comp, params)
     total = sites.assign(group=sites.site_id.map(comp)).groupby("group").capacity_kw.sum()

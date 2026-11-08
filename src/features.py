@@ -138,6 +138,9 @@ USE_GFS2 = os.environ.get("OIBC_GFS2", "0") == "1"         # GFS 확장 통계
 USE_GFSPTS = os.environ.get("OIBC_GFSPTS", "0") == "1"     # GFS 20격자점 일사 열
 GFSPTS_TCC = os.environ.get("OIBC_GFSPTS_TCC", "0") == "1" # + 20격자점 운량 열
 USE_UMX = os.environ.get("OIBC_UMX", "0") == "1"           # 기상청 UM 지역·전구 지점 평균
+USE_CAMS = os.environ.get("OIBC_CAMS", "0") == "1"
+USE_SHRT = os.environ.get("OIBC_SHRT", "0") == "1"
+USE_DERIV = os.environ.get("OIBC_DERIV", "0") == "1"       # 소스 간 파생 특징 (불일치·추세·예보관 보정량·일 요약)         # 기상청 단기예보(예보관 보정 하늘상태) D-1 14시 발표 (src/fetch_kma_shrt.py)         # CAMS(ECMWF IFS 0.4°) D-2 12z 상자 평균 (src/fetch_cams.py)
 USE_ECM = os.environ.get("OIBC_ECM", "0") == "1"           # ECMWF ENS D-2 상자 평균·퍼짐
 USE_UMPTS = os.environ.get("OIBC_UMPTS", "0") == "1"       # LDAPS 고정 5지점 값을 별도 열로
 USE_OPENMETEO = os.environ.get("OIBC_OPENMETEO", "0") == "1"  # Open-Meteo: 운영진 답변으로 사용 불가 → 기본 꺼짐
@@ -211,6 +214,19 @@ def load_ext(mode: str = "mean") -> pd.DataFrame | None:
         cols = [c for c in f.columns if c.startswith("ecm_d2_")]
         out = out.join(f.set_index("ts")[cols].add_prefix("ext_"), how="outer")
         ghi_cols.append("ext_ecm_d2_sw_mean")
+    shrt = os.path.join(root, "kma_shrt_hourly.parquet")
+    if USE_SHRT and os.path.exists(shrt):                      # 단기예보 격자 요약: 구름지수·맑음/흐림 비율·4분면 (D-1 14시 발표)
+        f = pd.read_parquet(shrt)
+        f["ts"] = f.ts.dt.tz_convert(TZ).astype(f"datetime64[ns, {TZ}]")
+        cols = [c for c in f.columns if c.startswith("shrt_") and c != "shrt_n_valid"]
+        out = out.join(f.set_index("ts")[cols].add_prefix("ext_"), how="outer")
+    cams = os.path.join(root, "cams_hourly.parquet")
+    if USE_CAMS and os.path.exists(cams):                      # CAMS 전구 예보 (코페르니쿠스 CC-BY), D-2 12z 리드 28~51h
+        f = pd.read_parquet(cams)
+        f["ts"] = f.ts.dt.tz_convert(TZ).astype(f"datetime64[ns, {TZ}]")
+        cols = [c for c in f.columns if c.startswith("cams_")]
+        out = out.join(f.set_index("ts")[cols].add_prefix("ext_"), how="outer")
+        ghi_cols.append("ext_cams_ghi")
     gpts = os.path.join(root, "gfs_pts_hourly.parquet")
     if USE_GFSPTS and os.path.exists(gpts):                    # GFS 고정 20격자점 열 (src/fetch_gfs_pts.py, 운영진 허용)
         f = pd.read_parquet(gpts)
@@ -248,9 +264,57 @@ def load_ext(mode: str = "mean") -> pd.DataFrame | None:
         out[f"{c}_dsum"] = g.transform("sum")                     # 대상일 총일사량 (같은 발행분)
         out[f"{c}_lag1"] = g.shift(1)
         out[f"{c}_lead1"] = g.shift(-1)
+    if USE_DERIV:
+        out = add_derived(out)
     num = out.columns.difference(["ts", "tday"])
     out[num] = out[num].astype("float32")
     return out.drop(columns="tday")
+
+
+def add_derived(out: pd.DataFrame) -> pd.DataFrame:
+    """소스 간 파생 특징 (모든 발전소에 같은 값). 각 소스 일사를 GFS 청천 일사(gfs_ghi / gfs_kcs)로 나눠 청천지수로 맞춘 뒤
+    - 불일치: 소스별 청천지수의 표준편차·범위·최솟값 (예보가 갈릴수록 불확실)
+    - 추세: 최신 실행(GFS D-1) − 이전 실행(ECMWF D-2) (흐려지는 쪽으로 바뀌는 중인지)
+    - 예보관 보정량: 단기예보 구름지수 − 수치모델 구름량(1 − 청천지수)
+    - 일 요약(대상일 낮 6~19시): 불일치 평균, 청천지수 최솟값, 오전/오후 차, 전일 대비 변화
+    """
+    d = out
+    cs = (d["ext_gfs_ghi"] / d["ext_gfs_kcs"]).where(d["ext_gfs_ghi"] > 20)        # GFS 기준 청천 일사
+    srcs = {"gfs": "ext_gfs_ghi", "um": "ext_um_ghi", "ecm": "ext_ecm_d2_sw_mean", "umrg": "ext_umrg_ghi", "umgl": "ext_umgl_ghi",
+            "cams": "ext_cams_ghi"}
+    k = pd.DataFrame({n: (d[c] / cs).clip(0, 1.3) for n, c in srcs.items() if c in d.columns}, index=d.index)
+    if "ext_shrt_cloud" in d.columns:
+        k["shrt"] = (1 - d["ext_shrt_cloud"]).clip(0, 1)                                # 하늘상태 → 대략적 청천지수
+    d["dv_k_mean"] = k.mean(axis=1)
+    d["dv_k_std"] = k.std(axis=1)
+    d["dv_k_range"] = k.max(axis=1) - k.min(axis=1)
+    d["dv_k_min"] = k.min(axis=1)
+    d["dv_n_src"] = k.notna().sum(axis=1).astype("float32")
+    if "ecm" in k:
+        d["dv_trend_gfs_ecm"] = k["gfs"] - k["ecm"]                                     # D-1 실행 − D-2 실행
+    if "um" in k:
+        d["dv_um_minus_gfs"] = k["um"] - k["gfs"]
+    if "shrt" in k:
+        d["dv_shrt_adj"] = k["shrt"] - k["gfs"]                                         # 예보관 보정량(+ 면 수치모델보다 맑게)
+        if "ext_shrt_ovc" in d.columns:
+            d["dv_shrt_contrast"] = d["ext_shrt_ovc"] - d["ext_shrt_clear"]
+    if "ext_ecm_d2_sw_std" in d.columns:
+        d["dv_ecm_cv"] = (d["ext_ecm_d2_sw_std"] / d["ext_ecm_d2_sw_mean"].where(d["ext_ecm_d2_sw_mean"] > 20)).clip(0, 2)
+    pts = [c for c in d.columns if c.startswith("ext_gfsp_dswrf_")]
+    if pts:
+        d["dv_gfsp_sd"] = d[pts].std(axis=1) / cs                                       # 격자점 간 공간 변동(청천 대비)
+    day = d.ts.dt.hour.between(6, 19)
+    g = d[day].groupby("tday")
+    for c in ("dv_k_std", "dv_k_mean"):
+        d[f"{c}_dmean"] = d.tday.map(g[c].mean())
+    d["dv_k_min_dmin"] = d.tday.map(g["dv_k_min"].min())
+    am = d[day & (d.ts.dt.hour < 13)].groupby("tday")["dv_k_mean"].mean()
+    pm = d[day & (d.ts.dt.hour >= 13)].groupby("tday")["dv_k_mean"].mean()
+    d["dv_k_pm_minus_am"] = d.tday.map(pm - am)
+    dm = g["dv_k_mean"].mean()
+    d["dv_k_dmean_chg"] = d.tday.map(dm - dm.shift(1))                                   # 전일(예보) 대비 변화
+    d["dv_k_x_hour"] = d["dv_k_mean"] * np.sin(np.pi * (d.ts.dt.hour - 5).clip(0, 14) / 14)  # 낮 중앙 가중
+    return d
 
 
 def load_wx(cutoff: str) -> tuple[pd.DataFrame, pd.DataFrame] | None:

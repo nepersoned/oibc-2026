@@ -8,3 +8,4 @@ holidays>=0.50
 xgboost>=2.0
 catboost>=1.2
 eccodes>=2.37
+cdsapi

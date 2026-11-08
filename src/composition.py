@@ -53,8 +53,10 @@ def feasible(x: np.ndarray, cap: np.ndarray) -> bool:
     return c1 >= MIN_CAP and cap.sum() - c1 >= MIN_CAP
 
 
-def local_search(x: np.ndarray, R: np.ndarray, w: np.ndarray, cap: np.ndarray, max_rounds: int = 50):
+def local_search(x: np.ndarray, R: np.ndarray, w: np.ndarray, cap: np.ndarray, max_rounds: int = 50,
+                 movable: np.ndarray | None = None):
     x = x.astype(np.float64).copy()
+    fixed = np.zeros(len(x), bool) if movable is None else ~movable
     tot = R.sum(1)
     e1 = R @ x
     best = float((w * (np.abs(e1) + np.abs(tot - e1))).sum())
@@ -66,7 +68,7 @@ def local_search(x: np.ndarray, R: np.ndarray, w: np.ndarray, cap: np.ndarray, m
         E1 = e1[:, None] + R * sign[None, :]
         cand = (w[:, None] * (np.abs(E1) + np.abs(tot[:, None] - E1))).sum(0)
         c1 = cap @ x + cap * sign
-        cand[(c1 < MIN_CAP) | (total_cap - c1 < MIN_CAP)] = np.inf
+        cand[(c1 < MIN_CAP) | (total_cap - c1 < MIN_CAP) | fixed] = np.inf
         j = int(np.argmin(cand))
         if cand[j] < best - 1e-6:
             x[j] = 1 - x[j]
@@ -75,7 +77,7 @@ def local_search(x: np.ndarray, R: np.ndarray, w: np.ndarray, cap: np.ndarray, m
             improved = True
             continue
         # 2) 교환: G1 하나 ↔ G2 하나 (최선 이동 후보 상위끼리만)
-        g1, g2 = np.where(x == 1)[0], np.where(x == 0)[0]
+        g1, g2 = np.where((x == 1) & ~fixed)[0], np.where((x == 0) & ~fixed)[0]
         top1 = g1[np.argsort(cand[g1])[:40]]
         top2 = g2[np.argsort(cand[g2])[:40]]
         for i in top1:
@@ -139,6 +141,8 @@ def main() -> None:
     ap.add_argument("--fit2-end", default="2024-06-01")
     ap.add_argument("--milp-seconds", type=float, default=0, help="0 이면 MILP 생략")
     ap.add_argument("--out", default=None, help="최적 구성 저장 경로 (composition.csv 형식)")
+    ap.add_argument("--movable-min-cov", type=float, default=0.0,
+                    help="두 검증연도(2023-06~2025-05) 모두 실적 비율이 이 값 이상인 발전소만 이동 (0 이면 전부)")
     a = ap.parse_args()
 
     sites = sc.load_sites()
@@ -152,8 +156,17 @@ def main() -> None:
     W0 = objective(x0, R, w)
     print(f"[fit] 시각 {R.shape[0]:,}  참조 구성 W {W0:,.0f}  하한 {lb:,.0f}")
 
+    movable = None
+    if a.movable_min_cov > 0:
+        movable = np.ones(len(sites), bool)
+        for st, en in [("2023-06-01", "2024-06-01"), ("2024-06-01", "2025-06-01")]:
+            act = sc.load_actual(st, en)
+            n_h = act.ts.nunique()
+            cov = act.groupby("site_id").energy.count().reindex(sites.site_id).fillna(0) / n_h
+            movable &= (cov >= a.movable_min_cov).to_numpy()
+        print(f"[fit] 이동 가능 발전소 {int(movable.sum())}개 / {len(sites)}")
     t = time.time()
-    x, W = local_search(x0, R, w, cap)
+    x, W = local_search(x0, R, w, cap, movable=movable)
     print(f"[fit] 국소 탐색 W {W:,.0f} ({(W / W0 - 1) * 100:+.2f}%)  {time.time() - t:.0f}s")
     if a.milp_seconds > 0:
         t = time.time()
