@@ -41,6 +41,7 @@ S1–S10 상세 및 제출 기록은 [SUBMISSIONS.md](SUBMISSIONS.md)와 read-on
 | SM#55 | SM53 settlement loss decomposition (same frozen predictions) | — | 199,849,640* | — | 진단 완료; Markdown SHA typo 정정; cancellation benefit fell 2.226m, explaining W +872,544 arithmetically; no new candidate/official score | [계보 감사](SM55_ARTIFACT_PROVENANCE_AUDIT.md); [분해](SM55_SETTLEMENT_DECOMPOSITION.md) |
 | SM#56 | ens_v12 vs SM46 prediction-level complementarity | — | — | — | Fixed-alpha diagnostic only; no stable W gain; 2023 G2 actual coverage weak; no training/submission | [사전등록](SM56_PREREGISTRATION.md); [정렬 감사](SM56_ARTIFACT_ALIGNMENT_AUDIT.md); [결과](SM56_COMPLEMENTARITY_REPORT.md) |
 | SM#57 | GFS vertical cloud fields feasibility | — | — | — | Source audit only; sampled GRIB fields exist, but date-level cutoff, full coverage and OIBC eligibility unresolved; training not run | [사전등록](SM57_PREREGISTRATION.md); [원천 감사](SM57_GFS_CLOUD_SOURCE_AUDIT.md); [결정](SM57_NEXT_DECISION.md) |
+| SM#58 | WA/WB + GFS DSWRF/TCDC vs + LCDC/MCDC/HCDC, seed7 | — | 188,593,036 → 186,530,359 (common-mask pilot) | — | Exploratory W decrease −2,062,677; 168h CI [−5,786,434,+1,308,454] includes zero; not promoted; cutoff evidence conditional | [coverage](SM58_CLOUD_COVERAGE_REPORT.md); [pilot](SM58_CONTROLLED_PILOT.md); `outputs/sm58/pilot_A_sites.parquet`, `pilot_B_sites.parquet` |
 
 \* 재사용된 SM#53 로컬 W를 분해 목적으로 재현한 값이며, 새 모델 점수는 아니다.
 

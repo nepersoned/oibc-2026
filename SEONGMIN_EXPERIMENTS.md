@@ -668,6 +668,7 @@ ens_v12의 외부 ENS/UM/LDAPS 출처는 제출 로그에 명칭은 있으나 ex
 | SM#55 | SM53 정산 손실 분해 및 artifact 계보 감사 | Frozen Group 해시 문서 오기 검증, 기존 Blend만 사용 | — | 199,849,640* | 개별 weighted W −1.353m; 상쇄 이득 −2.226m; 순 W +872,544원. 진단-only | [계보 감사](SM55_ARTIFACT_PROVENANCE_AUDIT.md) · [분해](SM55_SETTLEMENT_DECOMPOSITION.md) |
 | SM#56 | ens_v12와 SM46 A1-REF 예측 보완성 | JH group forecast와 SM Site 예측 group sum의 고정 alpha 진단 | Not comparable‡ | Not comparable‡ | 두 해 안정 개선 없음; official/local mask 차이와 2023 G2 coverage 제한; 미채택 | [정렬 감사](SM56_ARTIFACT_ALIGNMENT_AUDIT.md) · [결과](SM56_COMPLEMENTARITY_REPORT.md) |
 | SM#57 | GFS vertical cloud source / incremental value feasibility | 기존 DSWRF/TCDC 모델에 LCDC/MCDC/HCDC 추가 여부 검토; 학습 전 중단 | — | — | 표본 GRIB 인덱스에서는 필드 존재, JH 선행실험과 명시적 중복 없음. 공개시각·전체 date/lead coverage·OIBC 적격성 미확인으로 모델 미학습 | [원천 감사](SM57_GFS_CLOUD_SOURCE_AUDIT.md) · [사전등록](SM57_PREREGISTRATION.md) · [결정](SM57_NEXT_DECISION.md) |
+| SM#58 | GFS cloud-layer gate correction + seed7 pilot | WA/WB+GFS DSWRF/TCDC에 LCDC/MCDC/HCDC 추가 | — | 188,593,036→186,530,359 (Δ−2,062,677) | 168h CI [−5,786,434,+1,308,454] 0 포함; 탐색 신호, 후보 미승격 | [규정](SM58_RULE_INTERPRETATION.md) · [원천](SM58_GFS_PUBLICATION_EVIDENCE.md) · [결과](SM58_CONTROLLED_PILOT.md) |
 
 † 해당 값은 오라클·기존 후보 진단이며 새로운 독립 후보 W로 비교하면 안 된다. ‡ 2023 값은 회고적 구성 진단이다. W는 실험별 평가 마스크, 데이터 원천, 모델 구성에 따라 달라 직접적인 단일 순위로 읽지 않는다. SM#56 common-mask partial-group penalty는 SM site-mask W와 평가 단위가 달라 통합표에는 수치를 싣지 않았다. 공식 리더보드 S는 로컬 W와 별도 지표다. 외부 데이터 및 holiday 규정 적합성은 각 원본 보고서에서 확인된 범위만 따른다.
 

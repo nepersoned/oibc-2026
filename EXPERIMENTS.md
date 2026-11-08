@@ -213,3 +213,7 @@ seed 7/21/42의 동일 설정 예측을 재평가한 결과 SC1(site_code 제거
 ### SM#40 Noext group–site 제출 후보 생성
 
 SM#39 alpha=0.2를 고정해 사이트 rich LightGBM(site_code 제거, 2년)과 대회 제공 forecast_wa/wb 그룹 CF 모델을 제출기간 전체에 재학습·추론했다. 기준 구성 G1/G2 용량은 20,465.655/22,189.715kW, 두 그룹 학습 타깃은 17,544/11,649행이었다. alpha 재분배 합계 검증 및 제출 validator는 통과(exit 0); 후보 CSV는 생성했으나 실제 평가 정답이 없어 제출기간 W는 미산출이며 포털 미업로드다. 학습 CF 관측용량과 추론 고정용량 분모 차이를 기록했다. 상세 SHA256 및 GFS 테스트 감사는 `NOEXT_ENSEMBLE_SUBMISSION_SM40.md` 참조.
+
+### SM#58 GFS cloud-layer gate correction and seed-7 pilot
+
+공식 통합 공지의 공개시각 증빙 대안을 적용해 NOAA GFS 저·중·상층 구름량의 출처·시각·필드 지원을 재감사했다. D−1 17:00 KST 전에 현재 S3 index/GRIB 객체가 존재하고 Last-Modified인 실행만 포함하는 조건으로 2024–25 observed-mask reference W는 188,593,036원에서 186,530,359원으로 2,062,677원 감소했다. 168시간 paired bootstrap 95% CI [-5,786,434,+1,308,454]원이 0을 포함해 탐색 신호로 보류하며, 재사용 기간·조건부 공개시각 근거로 제출 후보 승격은 하지 않는다. SM57의 GFS 테스트 격리 결함은 동적 RAW 경로로 최소 수정했다. [출처·규정 감사](SM58_GFS_PUBLICATION_EVIDENCE.md), [커버리지](SM58_CLOUD_COVERAGE_REPORT.md), [파일럿](SM58_CONTROLLED_PILOT.md).

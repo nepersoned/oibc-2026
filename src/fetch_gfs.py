@@ -187,7 +187,11 @@ def clear_sky(ts_kst: pd.DatetimeIndex) -> np.ndarray:
     return np.where(cz > 0, 1098 * czc * np.exp(-0.057 / czc), 0.0)
 
 
-def build_hourly(raw_dir: str = RAW) -> pd.DataFrame:
+def build_hourly(raw_dir: str | None = None) -> pd.DataFrame:
+    # Resolve at call time so tests and staged callers can safely replace RAW.
+    # A default argument of RAW captures the original path at import time.
+    if raw_dir is None:
+        raw_dir = RAW
     recs = []
     for f in sorted(os.listdir(raw_dir)):
         init = pd.Timestamp(f[:8], tz="UTC")                       # D-1 00 UTC
