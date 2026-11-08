@@ -36,3 +36,8 @@ catboost_info/
 
 # 외부 안내 문서
 *사용_방법_안내*.pdf
+
+# 예측·제출 파일 보관 폴더 (실적 미포함)
+!predictions/
+!predictions/**/*.csv
+!predictions/submissions/
