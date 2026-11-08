@@ -113,7 +113,10 @@
 | SM#51 | ens_v3 격차 자료감사와 후속연구 우선순위 | — | — | 준비 완료; ens_v3 OOF 미확보, 학습 미실행 | [우선순위](SM51_RESEARCH_PRIORITIZATION.md) · [아티팩트 감사](SM51_ARTIFACT_AVAILABILITY_AUDIT.md) |
 | SM#52 | Historical solar-shape response feasibility | — | — | Stage 0 중단; 지원·strict OOF gate 미충족, W 실험 미실행 | [타당성 감사](SM52_FEASIBILITY_AUDIT.md) · [사전등록](SM52_PREREGISTRATION.md) · [결과](SM52_SOLAR_RESPONSE_REPORT.md) |
 | SM#53 | Historical generation AM/PM profile | — | 199,849,640 | 2024 seed7 W +872,544 (+0.439%); 기각, bootstrap·추가 seed 미실행 | [사전등록](SM53_PREREGISTRATION.md) · [지원 감사](SM53_COVERAGE_AUDIT.md) · [결과](SM53_HISTORICAL_PROFILE_REPORT.md) |
-| SM#54 | Settlement error decomposition | — | — | Frozen Group 예측 SHA256 불일치로 scoring 전 중단; 공식 점수 없음 | [사전등록](SM54_PREREGISTRATION.md) · [중단 보고](SM54_SETTLEMENT_ERROR_DECOMPOSITION.md) |
+| SM#54 | Settlement error decomposition | — | — | 당시 SHA gate로 중단; SM55에서 Markdown 오기로 정정, 그 후 분해 수행 | [사전등록](SM54_PREREGISTRATION.md) · [중단 보고](SM54_SETTLEMENT_ERROR_DECOMPOSITION.md) · [SM55 정정](SM55_ARTIFACT_PROVENANCE_AUDIT.md) |
+| SM#55 | Artifact provenance recovery and settlement decomposition | — | 199,849,640* | SHA 문서 오기 정정; SM53 W 재현, cancellation 감소로 W +872,544 설명; 진단-only, 공식 점수 없음 | [계보 감사](SM55_ARTIFACT_PROVENANCE_AUDIT.md) · [분해](SM55_SETTLEMENT_DECOMPOSITION.md) |
+
+\* SM#55는 SM#53의 이미 보고된 2024 W를 재현해 분해한 진단이며 신규 모델의 성능 점수가 아니다.
 
 ## 제출
 

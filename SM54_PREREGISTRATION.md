@@ -38,3 +38,7 @@ Top ten adverse dates are diagnostic rankings only. Do not use them to define a 
 Verify the recorded blended W values and their unrounded difference (approximately +872,544.15 KRW). Determine whether the change is arithmetically explained by increased weighted individual error, reduced cancellation benefit, or both. If the decomposition or subgroup sums do not reconcile within numerical tolerance, report the discrepancy and stop. Recommend only one next research direction from the specified options; do not estimate future model performance or tune a correction on 2024 outcomes.
 
 No CSV, submission artifact, or existing model output may be changed. No external data is used.
+
+## SM55 follow-up
+
+The Group hash copied into this preregistration contained a transcription typo. The later provenance check found the existing artifact matched SM50, SM51, and the SM53 JSON manifest. The original preregistration and stop history are retained; see [SM55 audit](SM55_ARTIFACT_PROVENANCE_AUDIT.md).

@@ -40,3 +40,7 @@ The previously reported Site MAE improvement and G1/G2/peak W deltas are likewis
 The observed mismatch is an artifact-provenance discrepancy, not evidence about the error mechanism. From the registered next-step options, recommend **stopping additional model experiments and focusing on official submission management**; the existing SM46 candidate remains the established choice. If the decomposition is revisited, first reconcile the Group artifact's provenance in a separate audit and preregister that follow-up. Do not tune any correction on the 2024 outcomes. No official score or new submission was produced.
 
 The existing SM46, SM48, ens_v3, and submission files were not modified. No output CSV or model file was created.
+
+## SM55 follow-up
+
+SM55 later verified that the underlying Group prediction hash matches SM50, SM51, and the SM53 JSON manifest; the mismatch was a Markdown transcription error. The original SM54 stop decision is preserved as the decision made with the evidence then recorded. See [SM55 artifact audit and completed decomposition](SM55_ARTIFACT_PROVENANCE_AUDIT.md) and [SM55 settlement results](SM55_SETTLEMENT_DECOMPOSITION.md).

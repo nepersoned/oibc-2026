@@ -93,3 +93,7 @@ The runtime was 97.7 seconds end-to-end, including feature construction, fit, pr
 Input and output hashes, code hashes, versions, configuration, score details, and monthly W are recorded in `outputs/sm53/pilot_2024.json` and `outputs/sm53/coverage_audit.json`. Key predictions: baseline Site seed7 `dcbdae2be77aab72a864f8c973ada8d3c0d8e9a78e62541d700095bc06e43f26`; candidate Site seed7 `1ba0066f6457f8eb242673124ca882ef98c3a09c167b04815dc8f853a08eacf4`; frozen Group100 `651b2f296316139af6ccf6aecabdd3071b1710de6fff35df18ecd20bb63b58b7`.
 
 Focused SM53 tests: **4 passed**. `compileall` and `git diff --check` passed. The full repository suite had 59 passed and 3 pre-existing GFS time/partial-export failures (`test_failed_day_remains_missing_without_overwrite`, `test_repaired_failed_day_is_included_only_when_supplied`, `test_build_hourly_synthetic_day`); SM53 did not modify GFS code.
+
+## Erratum — Group prediction SHA256
+
+The Group100 SHA256 printed above has a transcription typo. The correct digest is `651b2f296316139af6ccf6aecabdd3073b1710de6fff35df18ecd20bb63b58b7`, as recorded in `outputs/sm53/pilot_2024.json` and corroborated by SM50, SM51, and direct hashing of the existing Parquet. This is a documentation correction only; no artifact or JSON manifest was changed. See [SM55 provenance audit](SM55_ARTIFACT_PROVENANCE_AUDIT.md).

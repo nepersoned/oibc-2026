@@ -31,7 +31,10 @@ S1–S3 상세 및 제출 시각 기준은 [SUBMISSIONS.md](SUBMISSIONS.md) 참�
 | SM#51 | leaderboard gap / artifact audit | — | — | — | 준비 단계; ens_v3 OOF 없음, 신규 학습 없음 | [우선순위](SM51_RESEARCH_PRIORITIZATION.md); [아티팩트](SM51_ARTIFACT_AVAILABILITY_AUDIT.md) |
 | SM#52 | historical solar-shape response feasibility | — | — | — | Stage 0 중단; strict OOF 없음·2023 support 부족, 학습 미실행 | [타당성](SM52_FEASIBILITY_AUDIT.md); [사전등록](SM52_PREREGISTRATION.md); [결과](SM52_SOLAR_RESPONSE_REPORT.md) |
 | SM#53 | historical generation AM/PM profile, seed7 | — | 199,849,640 | — | 연구용; fixed 20% Group blend worsened by 872,544, not adopted; no submission | [사전등록](SM53_PREREGISTRATION.md); [결과](SM53_HISTORICAL_PROFILE_REPORT.md); `outputs/sm53/pilot_2024.json` |
-| SM#54 | settlement error decomposition | — | — | — | 진단 중단; frozen Group SHA256 mismatch before scoring; no official score | [사전등록](SM54_PREREGISTRATION.md); [중단 보고](SM54_SETTLEMENT_ERROR_DECOMPOSITION.md) |
+| SM#54 | settlement error decomposition | — | — | — | 당시 SHA gate로 중단; SM55에서 Markdown 오기로 정정 후 기존 예측 분해 완료 | [사전등록](SM54_PREREGISTRATION.md); [중단 보고](SM54_SETTLEMENT_ERROR_DECOMPOSITION.md); [SM55 정정](SM55_ARTIFACT_PROVENANCE_AUDIT.md) |
+| SM#55 | SM53 settlement loss decomposition (same frozen predictions) | — | 199,849,640* | — | 진단 완료; Markdown SHA typo 정정; cancellation benefit fell 2.226m, explaining W +872,544 arithmetically; no new candidate/official score | [계보 감사](SM55_ARTIFACT_PROVENANCE_AUDIT.md); [분해](SM55_SETTLEMENT_DECOMPOSITION.md) |
+
+\* 재사용된 SM#53 로컬 W를 분해 목적으로 재현한 값이며, 새 모델 점수는 아니다.
 
 ## 3. 파일 무결성
 
