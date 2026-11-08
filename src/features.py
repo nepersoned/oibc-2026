@@ -94,8 +94,9 @@ def prep_forecast(f: pd.DataFrame, prov: str, cols: list[str]) -> pd.DataFrame:
     idx = r17.index.union(r10.index)
     r17, r10 = r17.reindex(idx), r10.reindex(idx)
     d = r17.fillna(r10)
-    for c in R10[prov]:
+    for c in (list(cols) if RICH2 else R10[prov]):
         d[f"{c}_r10"] = r10[c]
+    for c in R10[prov]:
         d[f"{c}_d10"] = r17[c] - r10[c]
     d = d.reset_index().sort_values([st, "ts"])
     d["tday"] = target_day(d.ts)
@@ -109,6 +110,10 @@ def prep_forecast(f: pd.DataFrame, prov: str, cols: list[str]) -> pd.DataFrame:
         d[f"{c}_dmean"] = gc.transform("mean")
         day = d[c].where(hr.between(9, 16))
         d[f"{c}_daymean"] = day.groupby([d[st], d.tday]).transform("mean")
+        if RICH2:
+            prev = d[[st, "tday", f"{c}_daymean"]].drop_duplicates([st, "tday"]).copy()
+            prev["tday"] += pd.Timedelta(days=1)
+            d[f"{c}_daymean_prev"] = d[[st, "tday"]].merge(prev, on=[st, "tday"], how="left")[f"{c}_daymean"].to_numpy()
     num = d.columns.difference([st, "ts", "tday"])
     d[num] = d[num].astype("float32")
     return d.drop(columns="tday")
@@ -130,6 +135,7 @@ CAL_MODE = os.environ.get("OIBC_CAL_MODE", _CALENDAR_DEFAULT).strip().lower()
 if CAL_MODE not in {"legacy", "weekday", "none"}:
     raise ValueError("OIBC_CAL_MODE must be one of: legacy, weekday, none")
 CALENDAR = CAL_MODE != "none"                               # backward-compatible presence flag
+RICH2 = os.environ.get("OIBC_RICH2", "0") == "1"              # r10 all, prior-day forecast, site-vs-fleet
 USE_GFS = os.environ.get("OIBC_GFS", "1") == "1"          # NOAA GFS 원본 상자 평균
 USE_GEFS = os.environ.get("OIBC_GEFS", "1") == "1"        # NOAA GEFS 평균·퍼짐
 USE_UM = os.environ.get("OIBC_UM", "1") == "1"            # 기상청 UM 국지(LDAPS)
@@ -265,6 +271,10 @@ def build_rich(base: pd.DataFrame, sites: pd.DataFrame, fa: pd.DataFrame, fb: pd
     if wx is not None:
         d = d.merge(wx[0], on=["wa_station", "ts"], how="left")
         d = d.merge(wx[1], on=["wb_station", "ts"], how="left")
+    if RICH2:
+        for c in REGION:
+            if c in d.columns and f"reg_{c}" in d.columns:
+                d[f"vs_{c}"] = (d[c] - d[f"reg_{c}"]).astype("float32")
     ts = pd.DatetimeIndex(d.ts)
     d["elev"], d["azim"], d["cosz"] = solar(ts, d.lat.to_numpy(), d.lon.to_numpy())
     cz = np.clip(d.cosz.to_numpy(), 1e-3, None)
