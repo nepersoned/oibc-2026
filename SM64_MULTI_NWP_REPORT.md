@@ -1,5 +1,7 @@
 # SM#64 — Independent Multi-NWP Site Forecast
 
+> **SM#65 erratum (2026-11-09):** SM64 코드의 피처명 `gfs2_dswrf_out`은 잘못 명명되었다. 실제 GRIB2 추출 변수는 `DLWRF:surface`(하향 **장파**복사량)이다. `DSWRF`는 하향 **단파**복사량이며 이 신규 피처의 원천이 아니다. 기존 SM64 피처 파일·예측·해시·점수는 수정하지 않았다.
+
 ## 결정 요약
 
 추가 입력은 기상청 LDAPS가 아닌, 기존 main 수집기 `fetch_gfs2.py`와 같은 고정 광역 격자의 **GFS DLWRF surface mean**(`gfs2_dswrf_out`, 하향 장파복사량)을 선택했다. LDAPS 자료와 접근 자격 증명이 로컬에 없었고, ECMWF ENS의 과거 학습 지원도 확인되지 않았다. 점수 확인 전에 선택한 한 변수만 추가해 seed 7 통제 파일럿을 실행했다.
