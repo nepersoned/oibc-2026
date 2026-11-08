@@ -597,6 +597,18 @@ SM52의 strict OOF 잔차 의존 설계와 달리, 과거 generation 및 clear-s
 - 결과: [SM53_HISTORICAL_PROFILE_REPORT.md](SM53_HISTORICAL_PROFILE_REPORT.md)
 - 예측·입력·코드 manifest 및 월별 점수: `outputs/sm53/pilot_2024.json`, `outputs/sm53/monthly_w_2024.csv`
 
+## SM#56 — ens_v12 예측 보완성 feasibility audit
+
+JH `ens_v12`의 공개 validation group forecasts와 기존 SM46 A1-REF validation site forecasts를 재학습 없이 비교했다. ens_v12의 공식 S는 6,460,690,768점으로 read-only `origin/main@793f5f6` 및 제출 로그에서 팀 최고로 확인되며, SM46 예측은 seed7/21/42 Site + seed100 Group, 0.8/0.2 reference blend다.
+
+JH prediction schema는 `group, ts, forecast_kwh, site_model_kwh, group_model_kwh`이며 `forecast_kwh = .505×site + .495×group`와 CSV 정밀도 내에서 일치했다. JH v12 composition은 SM46 A1-REF와 253개 사이트 모두 동일하다. 두 JH 예측은 각 기간 8,760개 시각 × 2그룹으로 완전하다.
+
+같은 group forecast 단위로 보기 위해 SM site 예측 전체를 그룹 합산한 뒤 JH와 동일한 group actual rows 및 SMP/k에서 fixed alpha 0/.05/.10/.20을 계산했다. 이는 2023 G2 실제 커버리지가 평균 19.92%에 불과한 partial-actual diagnostic으로, SM의 공식 local site-mask W와 직접 비교할 수 없다. SM scorer W는 106,673,757 / 197,526,260원으로 기존 수치를 0.48원 이내 재현했다. JH recorded W 93,377,951 / 167,041,881원은 common group scoring으로 93,391,369 / 167,076,206원으로 근사하나 각각 +13,418 / +34,325원 차이가 남아 exact reproduction은 아니다.
+
+Fixed alpha 0.05의 2024 common-mask penalty 차이는 −98,560원뿐이며 168h paired bootstrap 95% CI [−789,187, +721,335]로 0을 포함한다. 2023에는 +31.28m 악화했고, G2 관측 불완전성이 해석을 막는다. alpha .10/.20은 2024도 악화했다. 2024 JH–SM group residual correlation은 0.696, nonzero residual의 반대 부호 비율은 21.2%다. SM 추가 가치가 안정적으로 입증되지 않아 제출 후보 혼합을 중단한다.
+
+ens_v12의 외부 ENS/UM/LDAPS 출처는 제출 로그에 명칭은 있으나 exact input hash, retrieval URL/snapshot, license/cutoff time 및 row-level feature lineage manifest가 공개 prediction artifact에 포함되지 않았다. official score와 external-source rule clearance를 별개로 둔다. 상세 결과와 JH#56–73 overlap: [계보·정렬 감사](SM56_ARTIFACT_ALIGNMENT_AUDIT.md), [보완성 결과](SM56_COMPLEMENTARITY_REPORT.md), [후속 결정](SM56_NEXT_RESEARCH_DECISION.md).
+
 # SM 전체 실험 결과 요약
 
 | SM ID | 실험 목적 | 기존 대비 변경사항 | 2023~24 W (KRW) | 2024~25 W (KRW) | 최종 판정 | 근거 문서 |
@@ -654,7 +666,8 @@ SM52의 strict OOF 잔차 의존 설계와 달리, 과거 generation 및 clear-s
 | SM#53 | 과거 발전량 AM/PM profile 파일럿 | prediction residual 대신 clear-sky 정규화 관측비대칭; 2024 seed7 | — | 199,849,640 | W +872,544 악화; 기각, bootstrap·추가 seed 미실행 | [결과](SM53_HISTORICAL_PROFILE_REPORT.md) · [사전등록](SM53_PREREGISTRATION.md) |
 | SM#54 | 정산 오차 항 분해 | 기존 예측만 사용; Site MAE와 group W 악화 원인 분해 | — | — | 당시 Group SHA gate로 중단; SM55 후속에서 Markdown 오기로 확인 | [중단 보고](SM54_SETTLEMENT_ERROR_DECOMPOSITION.md) · [사전등록](SM54_PREREGISTRATION.md) · [SM55 정정](SM55_ARTIFACT_PROVENANCE_AUDIT.md) |
 | SM#55 | SM53 정산 손실 분해 및 artifact 계보 감사 | Frozen Group 해시 문서 오기 검증, 기존 Blend만 사용 | — | 199,849,640* | 개별 weighted W −1.353m; 상쇄 이득 −2.226m; 순 W +872,544원. 진단-only | [계보 감사](SM55_ARTIFACT_PROVENANCE_AUDIT.md) · [분해](SM55_SETTLEMENT_DECOMPOSITION.md) |
+| SM#56 | ens_v12와 SM46 A1-REF 예측 보완성 | JH group forecast와 SM Site 예측 group sum의 고정 alpha 진단 | Not comparable‡ | Not comparable‡ | 두 해 안정 개선 없음; official/local mask 차이와 2023 G2 coverage 제한; 미채택 | [정렬 감사](SM56_ARTIFACT_ALIGNMENT_AUDIT.md) · [결과](SM56_COMPLEMENTARITY_REPORT.md) |
 
-† 해당 값은 오라클·기존 후보 진단이며 새로운 독립 후보 W로 비교하면 안 된다. ‡ 2023 값은 회고적 구성 진단이다. W는 실험별 평가 마스크, 데이터 원천, 모델 구성에 따라 달라 직접적인 단일 순위로 읽지 않는다. 공식 리더보드 S는 로컬 W와 별도 지표다. 외부 데이터 및 holiday 규정 적합성은 각 원본 보고서에서 확인된 범위만 따른다.
+† 해당 값은 오라클·기존 후보 진단이며 새로운 독립 후보 W로 비교하면 안 된다. ‡ 2023 값은 회고적 구성 진단이다. W는 실험별 평가 마스크, 데이터 원천, 모델 구성에 따라 달라 직접적인 단일 순위로 읽지 않는다. SM#56 common-mask partial-group penalty는 SM site-mask W와 평가 단위가 달라 통합표에는 수치를 싣지 않았다. 공식 리더보드 S는 로컬 W와 별도 지표다. 외부 데이터 및 holiday 규정 적합성은 각 원본 보고서에서 확인된 범위만 따른다.
 
 \* SM#55의 2024 W는 SM#53 후보 점수를 기존 예측으로 재현해 분해한 값이며, 새 모델 성능 점수가 아니다.

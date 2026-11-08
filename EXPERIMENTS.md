@@ -115,8 +115,10 @@
 | SM#53 | Historical generation AM/PM profile | — | 199,849,640 | 2024 seed7 W +872,544 (+0.439%); 기각, bootstrap·추가 seed 미실행 | [사전등록](SM53_PREREGISTRATION.md) · [지원 감사](SM53_COVERAGE_AUDIT.md) · [결과](SM53_HISTORICAL_PROFILE_REPORT.md) |
 | SM#54 | Settlement error decomposition | — | — | 당시 SHA gate로 중단; SM55에서 Markdown 오기로 정정, 그 후 분해 수행 | [사전등록](SM54_PREREGISTRATION.md) · [중단 보고](SM54_SETTLEMENT_ERROR_DECOMPOSITION.md) · [SM55 정정](SM55_ARTIFACT_PROVENANCE_AUDIT.md) |
 | SM#55 | Artifact provenance recovery and settlement decomposition | — | 199,849,640* | SHA 문서 오기 정정; SM53 W 재현, cancellation 감소로 W +872,544 설명; 진단-only, 공식 점수 없음 | [계보 감사](SM55_ARTIFACT_PROVENANCE_AUDIT.md) · [분해](SM55_SETTLEMENT_DECOMPOSITION.md) |
+| SM#56 | ens_v12와 SM46 A1-REF의 예측수준 보완성 | Not comparable‡ | Not comparable‡ | alpha .05/.10/.20 고정 진단; 안정적 W 개선 없음, 2023 G2 관측률 낮음; 학습·제출 미실행 | [사전등록](SM56_PREREGISTRATION.md) · [정렬 감사](SM56_ARTIFACT_ALIGNMENT_AUDIT.md) · [결과](SM56_COMPLEMENTARITY_REPORT.md) |
 
 \* SM#55는 SM#53의 이미 보고된 2024 W를 재현해 분해한 진단이며 신규 모델의 성능 점수가 아니다.
+‡ SM#56의 JH-style common-mask group penalty는 partial actual을 사용하며 SM official-local site-mask W와 단위가 달라 연도별 통합표의 W로 직접 비교할 수 없다. 상세 alpha별 값은 SM56 보고서를 참조한다.
 
 ## 제출
 
