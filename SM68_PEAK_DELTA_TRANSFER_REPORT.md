@@ -43,3 +43,21 @@ SM56은 SM 예측 전체를 JH와 고정 비율로 섞었다. SM68은 그 방식
 - 전체 Parquet 분석은 실행하지 못했으므로 이 산출물은 완료된 성능 실험이 아니라, 입력 파일 해시를 확인하고 실패 시 중단하는 재현 스크립트와 차단 보고서다.
 
 **결정:** SM67 peak delta가 ens_v12에 추가 가치를 주는지 현재 증거로 판정하지 않는다. 계수·모델을 바꾸지 말고, 동일 아티팩트로 Parquet 읽기가 가능한 승인된 Python 환경에서 2024 선행 게이트부터 재실행해야 한다. GFS 조건부 적격성은 SM58의 기존 CONDITIONAL 상태를 유지한다.
+
+## 2026-11-09 환경 복구 재시도
+
+기존 실행기 조사 및 승인된 격리환경에서 정식 `uv` 설치를 시도했다. 기존 `.venv`, 데이터, 모델 및 SM67/JH 예측 파일은 삭제·덮어쓰기하지 않았다.
+
+| Python | pandas / NumPy | PyArrow / fastparquet / pytest / ecCodes | 결과 |
+|---|---|---|---|
+| 기본 Hermes Python 3.11.15 | 3.0.3 / 2.4.6 import 성공 | PyArrow 없음, fastparquet 없음, pytest 없음, ecCodes 없음 | pandas 분석은 가능하나 Parquet 불가 |
+| 저장소 `.venv` Python 3.11.15 | pandas 3.1.1 / NumPy 2.4.6 설치 | PyArrow 26.0.1, pytest 9.2.0, ecCodes 2.50.0 설치 | pandas C 확장 로딩이 Windows Application Control 오류로 차단. ecCodes import는 성공 |
+| 설치된 Python 3.13.14 | pandas 3.0.1 / NumPy 2.4.3 import 성공 | PyArrow, fastparquet, pytest, ecCodes 없음 | 기존 환경에 Parquet 엔진이 없어 사용 불가 |
+| 설치된 Python 3.14.3 | pandas 3.0.1 / NumPy 2.4.3 import 성공 | PyArrow, fastparquet, pytest, ecCodes 없음 | 기존 환경에 Parquet 엔진이 없어 사용 불가 |
+| 이번 확인용 격리 Python 3.11.15 | pandas 3.0.3 / NumPy 2.4.6 import 성공 | 정식 설치 PyArrow 26.0.1, pytest 9.2.0 | PyArrow C DLL import가 Application Control 오류로 차단 |
+
+격리환경에서 작은 DataFrame의 `to_parquet`/`read_parquet` 왕복을 실제 시도했으나, PyArrow 엔진 로드 단계에서 실패했다. 같은 환경에서 SM68 전용 pytest 2개는 통과했다. `src/analysis/sm68_peak_delta_transfer.py --year 2024`는 다시 실행했으며, 고정 브랜치/기준 SHA, JH 원격 CSV와 composition 해시 검사 뒤 `pd.read_parquet`에서 같은 이유로 중단됐다. 따라서 parquet round-trip은 **실패**, 2024 W와 baseline 재계산은 **미실행**이다.
+
+승인된 인터프리터 중 Parquet C 확장을 실행할 수 있는 환경을 확보하지 못했다. Application Control을 우회하거나 보안 설정을 바꾸지 않고 여기서 중단한다. 이번 재시도는 최초 실패를 환경 차원에서 확인한 것으로, 점수 결과를 보충하거나 추정하지 않는다.
+
+확인용 격리환경은 `outputs/sm68/venv/`에 로컬·Git 제외 상태로 남아 있다. 이 환경에는 검증용 Python 패키지만 있으며 대회 원본 데이터나 예측 복사본은 포함하지 않는다.
